@@ -1,8 +1,4 @@
-"""
-02-18-19 removals: data pull,<smoothing block from file_return>
-02-19-19: removed traces of THINGS
-"""
-
+"""Underlying i/o routines."""
 
 import sys, os, os.path, traceback, re
 from functools import partial, reduce
@@ -20,48 +16,21 @@ from cls.classes.Galaxy.galaxy_attribute_information import \
 	baseline_attributes, observational_only_attributes
 from core import MultiIterator
 
-# from comp.contiguous import reducer # circular import
-
 from prop.galaxy_file import *
 from prop.simprop import vollmer_center_coors, vollmer_psa, vollmer_PA
-# from prop.simprop import v4522_inclinations
 from prop.asy_prop import *
 from prop.sim_fn_gen import sim_fn_x,sim_fn_y
 
-from cls.adc_prep import basic_info_values, real_data_values, noise_data_values
+# from cls.adc_prep import basic_info_values, real_data_values, noise_data_values
 
-
-
-"""def multi_membership(value,containers):
-	return ((v in c) for c in containers)
-def zip_membersip(test_values,containers):
-	return ((v in c) for v,c in zip(test_values,containers))"""
-
-#def np_print() # for printing arrays conveniently
-
-def load_array(path, **kw): #ret_mmap=False,
-# 	if ret_mmap: return np.load(path, mmap_mode='r', **kw)
+def load_array(path, **kw):
 	return np.load(path, **kw)
 
 def save_array(path, arr):#, tests=False, full_tests=True, ret_mmap=False
 	"""save numpy file (*.npy) of numpy array and assert correct loading via memory map"""
 	arr = np.atleast_1d(arr)
 	np.save(makepath_from_file(path), arr)
-# 	if ret_mmap: mmap=np.load(path, mmap_mode='r')
-# 	else: 
 	return arr
-# 	if tests:
-# 		assert np.array_equal(arr, mmap)
-# 		if full_tests:
-# 			assert np.array_equal(arr.shape, mmap.shape)
-# 			assert np.array_equal(arr+1.5, mmap+1.5)
-# 			assert np.array_equal(arr-1.5, mmap-1.5)
-# 			assert np.array_equal(arr*1.5, mmap*1.5)
-# 			assert np.array_equal(arr/1.5, mmap/1.5)
-# 			index=np.arange(len(arr)+1)%len(arr)
-# 			assert np.array_equal(arr[index], mmap[index])
-# 			assert np.array_equal(np.where(arr), np.where(mmap))
-# 	return mmap
 
 def save_fmt(savepath,*save_args,delimiter='\t',index_col=0,data=None,**read_kw):
 	"""Save a pandas DataFrame with more readable formatting"""
@@ -76,14 +45,7 @@ def save_fmt(savepath,*save_args,delimiter='\t',index_col=0,data=None,**read_kw)
 	dstr[1]=dstr[1].replace(' ','')
 	dstr[1]=dstr[1]+dstr[0][len(dstr[1]):]
 	with open(savepath.replace('.file','_fmt.file'),'w+') as f:
-		#dstr=data.to_string().split('\n')
 		f.write('\n'.join(dstr[1:]))
-
-# def select(test_value,input,output=None):
-# 	if output is None: comp=input
-# 	else: comp=zip(input,output)
-# 	for i,o in comp:
-# 		if i==test_value: return o
 
 def merge_dicts(*dicts,**k):
 	d0={}
@@ -93,53 +55,11 @@ def merge_dicts(*dicts,**k):
 
 def d_beam_func(d1,d2): return np.sqrt(d1*d2)
 
-# def print_stack(stack,index=None,item=None,exclude=[],joiner='   '):
-# 	"""
-# 	'stack' should be the result of calling inspect.stack()
-# 	"""
-# 	exclude=set(exclude)
-# 	if index is None:
-# 		if item is None: 
-# 			for i,l in enumerate(stack):
-# 					print('\t stack item %i'%i)
-# 					for j,e in enumerate(l):
-# 						print('\t\t%i %s'%(j,e))
-# 		else:
-# 			item=listify2(item)
-# 			sp=(l[j] for j in item for l in stack)
-# 			sp=(e for e in sp if e not in exclude)
-# 			print(joiner.join(sp))
-# 		#print	
-# 	else:
-# 		for i in listify2(index):
-# 			stack_element=stack[i]
-# 			if item is None: 
-# 				print('\t stack item %i'%i)
-# 				for j,e in enumerate(stack_element):
-# 					print('\t\t%i %s'%(j,e))
-# 			else:
-# 				sp=(stack_element[j] for j in listify2(item))
-# 				sp=(e for e in sp if e not in exclude)
-# 				print(joiner.join(sp))
-# 		#print
-# 	return ''
-
 def print_update(*p):
 	#stdout.write("\r"+str(p))
 	#stdout.write('\x1b[2K\r'+' '.join([str(i) for i in p]))
 	#stdout.flush()
 	print('\x1b[2K\r'+' '.join([str(i) for i in p]),flush=True,end='')
-
-"""
-def print_clear(): print_update('')
-
-def print_io(stream,*p,**k):#,pr=True
-	try: pr=k['pr']
-	except KeyError: pr=True
-	t=' '.join(str(e) for e in p)
-	if pr: print(t)
-	stream.write(t+'\n')
-"""
 
 def makepath(p): #https://stackoverflow.com/questions/273192/
 	"""
@@ -192,17 +112,6 @@ def savetxt(p,ar,**k):
 	makepath_from_file(p)
 	np.savetxt(p,ar,**k)
 
-"""def makefile(filepath,*args,**kw):
-	k=dict(saving_function=np.savetxt)
-	k.update(kw)
-	saving_function=k['saving_function']
-	k.pop('saving_function')
-	fs=filepath.split('/')
-	makepath('/'.join(fs[:-1]))
-	saving_function(*args,**k)"""
-
-
-
 def str_replace(s,args,r=''):
 	for arg in args: s=s.replace(arg,r)
 	return s
@@ -225,24 +134,14 @@ def fpull(file,c=None,a=[],s=0,e=0,rep=None,r=None,ret=0):
 		return d
 	elif ret=='a': return np.array(l)
 
-#edge_raw=fpull(MAIN_PROGRAM_DIRECTORY+'graph_edge.list')
-#central_raw=fpull(MAIN_PROGRAM_DIRECTORY+'gal_center_angles.list')
 coorslinesdata=fpull(DATA_SOURCES_PATH+'gal_coor.file',rep=('h','m','s','d'),r=' ')
 shapedata=fpull(DATA_SOURCES_PATH+'gal_shape_mod.file')
 OTHER_data=fpull(DATA_SOURCES_PATH+'OTHER/OTHER.file',s=1,e=2)
 
 ATLAS3D_data=fpull(DATA_SOURCES_PATH+'ATLAS3D/ATLAS3D.file',s=1,e=24)
-#ftype_dic={'s': 'sim', 'r': 'real','vs':'v4522'}
-
-# p_suf=('cent','nc','m2c','m2nc')
-# sc_suf=('extsc','flsc','htsc','qextsc','qflsc','m2extsc','m2flsc')
-# b_suf=('int','out','m2int','plad')
-# p_suf_cart=('cent_cart','nc_cart','m2c_cart','m2nc_cart')
-# suffices=[p_suf,sc_suf,b_suf,p_suf_cart]
 
 def listify(input,convert): return [input] if isinstance(input,convert) else input
-def listify2(input,convert=list):
-	#return [input] if (not isinstance(input,convert)) else input
+def listify2(input):
 	try: return list(input)
 	except TypeError: return [input]
 
@@ -260,40 +159,6 @@ def get_shortside_data(Ginstance):
 	shortside_show[:,0]=shortside_show[:,0]%360
 	
 	return shortside_show,shortside_median
-
-'''
-def file_return(filename):
-	"""returns the information required to access data for a given galaxy"""
-	if 'x' in filename or 'y' in filename:
-		filetype='s'
-		if filename not in sim_fn:
-			sim_name_file=open(MAIN_PROGRAM_DIRECTORY+'sim_names.file','a')
-			sim_name_file.write(' %s'%filename)
-			sim_name_file.close()
-			sim_fn.append(filename)
-		#sim_name=DATA_SOURCES_PATH+'sim_fits/'+'sigma_gas_'+filename[0]+'_0'+filename[1:]+'.fits'#os.path.join(os.getcwd(),)
-		#openname=DATA_SOURCES_PATH+'sim_fits/'+'sigma_gas_'+filename[0]+'_0'+filename[1:]+'_smooth-test.fits'#os.path.join(os.getcwd(),)
-		sim_name = RSIM_FITS_SOURCE_FILE.format(rtype=filename[0], index=filename[1:])
-		openname = RSIM_FITS_PROCESSED_FILE.format(filename)
-	elif 'v'==filename[0]:
-		filetype='vs'
-		fcomp=filename.split('_')
-		openname=VSIM_FITS+'{group}/smoothed__{gal}.fits'.format(group='_'.join(fcomp[:-1]),gal=filename)
-	else:
-		filetype='r'
-		if filename in OTHER:
-			path1=DATA_SOURCES_PATH+'OTHER/'+filename+'.fits'
-			path2=DATA_SOURCES_PATH+'OTHER/'+filename+'.FITS'
-		elif filename in ATLAS3D:
-			path1=DATA_SOURCES_PATH+'ATLAS3D/Serra2012_Atlas3D_Paper13/all_mom0/NGC'+filename+'_mom0.fits'
-			path2=DATA_SOURCES_PATH+'ATLAS3D/Serra2012_Atlas3D_Paper13/all_mom0/UGC'+filename+'_mom0.fits'
-		else:
-			path1=DATA_SOURCES_PATH+'fits files/ngc'+filename+'.mom0.fits'
-			path2=DATA_SOURCES_PATH+'fits files/'+filename+'.mom0.fits'
-		openname=path1 if os.path.exists(path1) else path2
-	return [filename,openname,filetype]
-'''	
-# get_zero, zdata_ret moved to comp.contiguous
 
 def get_raw_data_from_fits(Ginstance):
 	filename,openname,filetype=Ginstance.filename,Ginstance.openname,Ginstance.filetype

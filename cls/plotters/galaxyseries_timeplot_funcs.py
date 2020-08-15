@@ -23,8 +23,6 @@ plotting_kw=pd.DataFrame(
 
 plotting_kw[[k.replace('A', 'R') for k in plotting_kw.columns[:-1]]]=plotting_kw[plotting_kw.columns[:-1]]
 
-# INITIAL=
-
 @partial(paperplot2, show=False)
 @makeax
 def timeplot(self, attr, ax=None, aplot=False, alter=None, mode='plot', 

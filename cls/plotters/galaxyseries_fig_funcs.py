@@ -1,16 +1,10 @@
-# import traceback
-
 import numpy as np
 from matplotlib import gridspec, pyplot as plt
 from plot.plotting_functions import *
-# from plot.voll_rp_profile import add_rp_profile
 from prop.asy_prop import *
 from prop.asy_prop_plot import *
 from prop.asy_defaults import *
 from comp.computation_functions import *
-# from comp.array_functions import minmax
-
-# INITIAL=
 
 def rp_trace_plot(self, reject_by_m2 = False):
 # 	PA_radii=self.get_PA_radii()#np.sum(PA_radii, axis=1)

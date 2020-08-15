@@ -14,8 +14,6 @@ import comp.asymmetry_functions as asy_funcs
 
 REGION_HATCHING = False
 
-# INITIAL=
-
 
 def m1_m2_regions(self, m1_kw=None, m2_kw = None):
 	_, axes=plt.subplots(2, 2, gridspec_kw={'hspace':0, 'wspace':-.4}, subplot_kw=dict(polar=True))

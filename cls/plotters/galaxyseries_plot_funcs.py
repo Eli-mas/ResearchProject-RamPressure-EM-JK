@@ -11,7 +11,6 @@ from plot.voll_rp_profile import add_rp_profile
 
 from matplotlib import cm, pyplot as plt
 # [(]((?!def)(.|\n))*?([)][:]).*
-# INITIAL=
 
 def figsave(self,title,append=None,close=True,**kw):
 	title=self.title+' '+title
