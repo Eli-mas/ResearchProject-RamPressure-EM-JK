@@ -13,7 +13,7 @@ We currently have three articles mostly written that will present the new method
 
 A fourth paper is partially drafted that details the overview of our motion estimates for the nearby Virgo cluster. A fifth paper is planned (analysis has been at least partially conducted) that collects what we have learned in light of galaxy evolution from the application of our methods to observed galaxies.
 
-These five papers all stem from the methods that will be presented in the first paper. We have also developed more complex methods of measuring asymmetry that may be detailed in other articles--but not until the earlier papers are published.
+These five papers all stem from the methods that will be presented in the first paper. We have also developed more complex methods of measuring asymmetry that may be detailed in other articles.
 
 ## This repository
 I have posted the code here that pertains to the earlier papers, particularly the first three, with some miscellaneous scripting functions included. Code for potential future papers is not posted yet. Parts of this project depend on other modules that I have developed on my local machine; I will post parts of these in time.
