@@ -8,7 +8,7 @@ statistics for such quantities.
 import numpy as np
 from numpy.ma import masked_array
 
-from common.arrays.arrays import access_1d_strands, rollaxes, recreate_from_1d_strands
+from common.arrays.iterate import access_1d_strands, rollaxes, recreate_from_1d_strands
 
 from asy_io.asy_io import lprint,print_update
 from .array_functions import *

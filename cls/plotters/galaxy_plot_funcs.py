@@ -206,6 +206,5 @@ def plot_outer_flux_sector(self,*a,**kw):
 
 
 __all__ = ('zshow','polar_imshow','zshow','plot_ratio_arrays','polar_boundary_plot',
-'iter_plot_ratio_arrays','shortlong_sidesum_plot','score_spectrum_plot',
-'plot_fr_weighted_galaxy','noncenter_show','plot_angular_property',
+'iter_plot_ratio_arrays','noncenter_show','plot_angular_property',
 'plot_outer_boundary_sector','plot_total_flux_sector','plot_outer_flux_sector',)

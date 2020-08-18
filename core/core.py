@@ -8,7 +8,7 @@ import numpy as np
 
 from common import Struct, MultiIterator, IterDict
 from common.parallel.threading import Queuer
-from common.collections.collection import consume, groupby_whole
+from common.collections import consume, groupby_whole
 from common.collections.array_funcs import assign as array_assign
 
 def getattrs(obj,*attrs,asarray=True):
