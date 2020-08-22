@@ -14,10 +14,10 @@ defines the calculation dependencies of any given attribute.
 _Galaxy never has to be accessed directly."""
 
 from multiprocessing import Pool, cpu_count
-import functools
 import numpy as np
 
 from common import MultiIterator, getattrs, print_update, consume
+from common.decorators import add_doc
 
 from core import AttributeAbsent
 from prop.asy_prop import *
@@ -68,7 +68,7 @@ class Null:
 
 class _Galaxy:
 	"""Base class that tells how to compute data for a galaxy."""
-	#from .galaxy_attribute_information import *
+# 	from .galaxy_attribute_information import *
 	# imported at the module level
 	
 	# don't use more memory than needed
@@ -199,6 +199,13 @@ class _Galaxy:
 		
 		# does the Galaxy class know how to retrieve this?
 		if attr in getters:
+			"""
+			two occasions where we do not want to try loading data:
+			(1) Galaxy instance is set to compute rather than load
+			(2) the attribute is present in 'other_attributes', meaning it is
+			    not meant to be computed or loaded as a numerical data type,
+			    but is set by some other means; e.g. `ratio_process_plotter`
+			"""
 			if super().__getattribute__('compute') or attr in other_attributes:
 # 				print('computing attribute:',attr)
 				result = getters[attr](self)
@@ -224,25 +231,13 @@ class _Galaxy:
 			delattr(self,attr) # delete to avoid lingering nonce attribute
 			return super().__getattribute__(attr) # raises AttributeError
 	
-	# redundant
-# 	def allowed(self,attr):
-# 		return attr not in super().__getattribute__('absent')
-
-	# from a prior version; potentially useful but not currently used
-# 	def clear_loaded_data(self):
-# 		for attr in self.loaded_data[:]:
-# 			delattr(self, attr)
-	
 	def load_attr(self,attr):
 		"""load an attribute from the HDF5 interface"""
 		if attr in arrays:
 			return self.h5_interface.read_array_for_instance(self,attr)
 		else:
 			return self.h5_interface.read_scalar_for_instance(self,attr)
-		"""
-		setattr(self, attr, self._load_array(attr))
-		self.load_qset(attr)
-		"""
+	
 	def _setattrs_unzip(self, attrs, container):
 		"""
 		Set attrs based on a list of attribute names and container of values;
@@ -274,7 +269,7 @@ class _Galaxy:
 		are not strings, return them directly, otherwise return
 		the corresponding attribute on this instance.
 		"""
-		return [(v if not isinstance(v, str) else getattr(self, v)) for v in vals]
+		return [(getattr(self, v)) if isinstance(v, str) else v for v in vals]
 	
 	def populate(self):
 		"""
@@ -296,25 +291,26 @@ class _Galaxy:
 	################################
 
 	def get_total_xy(self):
-		"""Establish all x and y coordinates for this galaxy's pixels."""
+		"""Establish x and y coordinates for all pixels."""
 		self._setattrs_unzip(
 			('total_x', 'total_y'),
 			coorsgen(self.zdata, as_columns=False)
 		)
 
-	@functools.wraps(galaxy_outer_configure)
+	@add_doc(galaxy_outer_configure)
 	def isolate_outer_galaxy(self):
+		"""Isolate and generate arrays for outer & wrongside pixels."""
 		galaxy_outer_configure(self)
 
 	def compute_total_theta_radii(self):
-		"""Establish all t and r coordinates for this galaxy's pixels."""
+		"""Establish theta and radial coordinates for all pixels."""
 		self._setattrs_unzip(
 			('total_t', 'total_r'),
 			c_to_p(self.total_x, self.total_y, self.xpix, self.ypix)
 		)
 
 	def arrange_total_f_by_t(self):
-		"""digitizes total flux analogous to nc_f_per_t"""
+		"""Digitizes total flux analogous to `nc_f_per_t`."""
 		theta_int, flux = self.total_t_int_tsort, self.total_f_tsort
 		self.total_f_per_t = compute_region_f_per_t(theta_int, flux)
 		self.total_f_per_t_rw = compute_region_f_per_t(theta_int, flux * self.total_r_tsort)
@@ -335,11 +331,12 @@ class _Galaxy:
 		plot_list_adjust[:, 0] %= tau
 		self.plot_list_adjust = plot_list_adjust
 
-	@functools.wraps(get_galaxy_inner_regions)
+	@add_doc(get_galaxy_inner_regions)
 	def compute_inner(self):
+		"""Isolate and generate arrays for inner pixels."""
 		get_galaxy_inner_regions(self)
 	
-	@functools.wraps(ratio_angle_calc)
+	@add_doc(ratio_angle_calc)
 	def get_m1_flux_quantities(self):
 		"""Get flux asymmetry quantities with all possible weighting schemes."""
 		ratio_angle_calc(self)
@@ -347,19 +344,47 @@ class _Galaxy:
 		ratio_angle_calc(self, rweight=True)
 		ratio_angle_calc(self, trig=True, rweight=True)
 
-	@functools.wraps(get_m2_ext_quantities)
+	@add_doc(get_m2_ext_quantities)
 	def get_m2_extent_data(self):
+		"""Get raw m=2 extent-related quantities if permitted on this galaxy;
+		note this precedes the calculation of the m=2 extent ratio and other
+		m=2 asymmetry data."""
 		if deny_m2_high_i and self.inclination > high_i_threshold:
-			for attr in m2_attributes: setattr(self, attr, None)
+			consume(setattr(self, attr, nan) for attr in m2_attributes)
 		else:
 			get_m2_ext_quantities(self)
 
-	@functools.wraps(m2_calc)
+	@add_doc(m2_calc)
 	def compute_m2_asymmetry_arrays(self):
+		"""Compute all m=2 asymmetry quantities."""
 		if deny_m2_high_i and self.inclination > high_i_threshold:
-			for attr in m2_attributes: setattr(self, attr, None)
+			consume(setattr(self, attr, nan) for attr in m2_attributes)
 		else:
 			m2_calc(self)
+
+	@add_doc(compute_m2_asymmetry_arrays)
+	def get_m2_quantities(self):
+		"""Compute all m=2 asymmetry quantities via 'compute_m2_asymmetry_arrays'."""
+		if deny_m2_high_i and self.inclination > high_i_threshold:
+			consume(setattr(self, attr, nan) for attr in m2_attributes)
+		else:
+			self.compute_m2_asymmetry_arrays()
+
+	def get_centroid_data(self):
+		"""compute centroid angles/radii and tail angle"""
+		self._setattrs_unzip(centroid_angle_attrs, self.centroids[:, 0])
+		self._setattrs_unzip(centroid_radius_attrs, self.centroids[:, 1])
+
+		self.tail_A, self.tail_r = self.weighted_centroid_angle, self.weighted_centroid_radius
+		self.TA = (self.tail_A+180)%360
+
+	def compute_m1_ext_asymmetry(self):
+		"""Compute extent ratios and asymmetries (quadrant, half-disk)"""
+		self.EA, self.ER = EA_calc(self.score)
+		self.qEA, self.qER = EA_calc(self.qscore)
+
+		self.EA_trig, self.ER_trig = EA_calc(self.score_trig)
+		self.qEA_trig, self.qER_trig = EA_calc(self.qscore_trig)
 		
 	def get_short_long_sides(self):
 		"""Compute shortside_list_graph and longside_list_graph"""
@@ -384,41 +409,10 @@ class _Galaxy:
 		self.shortsum_lin = np.average(short_shorter, weights=lin_weights)
 		self.shortsum_trig = np.average(short_shorter, weights=trig_weights)
 
-# 	def sort_internal_by_internal(self, input_array_type, sorter_type):
-# 		setattr(
-# 			self,
-# 			input_array_type + '_' + sorter_type + 'sort',
-# 			getattr(self, input_array_type)[getattr(self, sorter_type + 'sort_inds')]
-# 		)
-
 	def setattr_argsort(self, internal_sorter_array, sort_str):
 		"""Get and set as an attribute an array sorted by another array."""
 		inds = np.argsort(internal_sorter_array)
 		setattr(self, sort_str + 'sort_inds', inds)
-
-	@functools.wraps(compute_m2_asymmetry_arrays)
-	def get_m2_quantities(self):
-		# print('\t**** get_m2_quantities')
-		if deny_m2_high_i and self.inclination > high_i_threshold:
-			for attr in m2_attributes: setattr(self, attr, nan)
-		else:
-			self.compute_m2_asymmetry_arrays()
-
-	def get_centroid_data(self):
-		"""compute centroid angles/radii and tail angle"""
-		self._setattrs_unzip(centroid_angle_attrs, self.centroids[:, 0])
-		self._setattrs_unzip(centroid_radius_attrs, self.centroids[:, 1])
-
-		self.tail_A, self.tail_r = self.weighted_centroid_angle, self.weighted_centroid_radius
-		self.TA = (self.tail_A+180)%360
-
-	def compute_m1_ext_asymmetry(self):
-		"""Compute extent ratios and asymmetries (quadrant, half-disk)"""
-		self.EA, self.ER = EA_calc(self.score)
-		self.qEA, self.qER = EA_calc(self.qscore)
-
-		self.EA_trig, self.ER_trig = EA_calc(self.score_trig)
-		self.qEA_trig, self.qER_trig = EA_calc(self.qscore_trig)
 		
 
 class Galaxy(_Galaxy):	
@@ -429,7 +423,9 @@ class Galaxy(_Galaxy):
 	__slots__ = ()
 		
 	@classmethod
+	@add_doc(Galaxy_H5_Interface.write_files_to_h5)
 	def write_to_h5(cls, *filenames):
+		"""Write data for galaxies to hdf5 file."""
 		from ..h5 import write_h5_file_contents
 		recomputed_galaxies = cls.recompute(*filenames)
 		cls.h5_interface.write_files_to_h5(recomputed_galaxies)
@@ -440,7 +436,8 @@ class Galaxy(_Galaxy):
 	def read_from_h5(filenames, attributes):
 		"""Not implemented. Will be useful if we want to retrieve data
 		for particular galaxies without establishing Galaxy instances.
-		Of interest but not essential at the moment."""
+		Of interest but not essential at the moment.
+		"""
 		...
 		NotImplemented
 	
@@ -463,11 +460,11 @@ class Galaxy(_Galaxy):
 			except AttributeAbsent: pass
 		return g
 	
-	@functools.wraps(compute_all_values)
 	@classmethod
+	@add_doc(compute_all_values)
 	def recompute(cls, *filenames, attribute_set=None):
 		"""
-		call 'compute_all_values' on provided filenames
+		Call 'compute_all_values' on provided filenames.
 		"""
 		if attribute_set is None:
 			attribute_set = all_attributes

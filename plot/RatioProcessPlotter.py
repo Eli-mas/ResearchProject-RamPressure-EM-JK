@@ -1,3 +1,9 @@
+"""RatioProcessPlotter provides a convenient interface to a certain kind of plot
+used to highlight the processes for calculating m=1/m=2 asymmetry ratios & angles.
+
+Simplified by the existence of Python's `functools.partialmethod` in Python 3.4+.
+"""
+
 from functools import partialmethod
 
 from common.arrays.roll_wrap_funcs import rolling_gmean_wrap
@@ -41,6 +47,9 @@ class RatioProcessPlotter:
 		return polar_axes, ax
 	
 	def overview_plots(self):
+		"""All m=1/m=2 overview plots, i.e., show polar frames at particular
+		angles in the calculation process, arranged horizontally,
+		and mark the corresponding angles in a ratio plot beneath these."""
 		self.m1_extent_overview_plot()
 		self.m1_flux_overview_plot()
 		self.m1_ht_overview_plot()
@@ -48,31 +57,40 @@ class RatioProcessPlotter:
 		self.m2_flux_overview_plot()
 	
 	def __overview_plot(self, m, qtype):
+		"""Underlying method that provides for the logic in each derivative
+		method reference in `overview_plots`."""
 		polar_axes, ax = self.create_m_overview_axes()
+		# indices corresponding to angles where we will focus on
 		locs = np.linspace(ahl/m, a2l/m, 4, dtype=int)
 		colors = 'rygb'
+		# function that draws on the polar axes
 		polar_plotter = self.__get_process_frame_func(m, qtype, 'polar')
+		# draw on each polar axis
 		for pax, p, c in zip(reindex(polar_axes,1), locs, colors):
 			polar_plotter(p, pax, arrow_kw = {'color':c})
 		
+		# the following line calls the function that draws on the ratio axis
+		# and retrieves from the call an array containing the x/y data
+		# of the ratio of interest plotted as `rline_data`
 		rline_data = self.__get_process_frame_func(m, qtype, 'ratio')(a2l, ax)
+		# for each angle, mark the ratio curve with a color-coded symbol
 		for l,c in zip(locs % a2l,colors):
 			ax.scatter(*rline_data[:, l],
 						c=c, marker=(3,0,l*index_to_deg), s=200
 			)
-		ax.set_xlim(-5,365)
+		ax.set_xlim((-5,365) if m==1 else (0,360))
 		paper_tex_save(
 			f'{self.g.filename} m{m} {qtype} overview', 'methods',
 			link_folder=(f'm{m} process', self.g.filename))
 	
 	def m1_extent_process_polar_frame(self, pos, polar_ax, arrow_kw={}, boundary = True):
 		if boundary: self.g.polar_boundary_plot(polar_ax)[0].set_zorder(-1)
-		t, r=self.g.extentlist_graph[pos%a2l]; t*=deg_to_rad
+		theta, radius=self.g.extentlist_graph[pos%a2l]; theta*=deg_to_rad
 		polar_ax.annotate(
-			"", xytext=[t, 0], xy=[t, r], zorder=-1,
+			"", xytext=[theta, 0], xy=[theta, radius], zorder=-1,
 			arrowprops={**dict(arrowstyle="->", color='r', lw=2, shrinkA=0, shrinkB=0, zorder=-1), **arrow_kw})
 		polar_ax.plot(
-			[0, t+tau/2], [0, self.g.extentlist_graph[(pos+al)%a2l, 1]],
+			[0, theta+tau/2], [0, self.g.extentlist_graph[(pos+al)%a2l, 1]],
 			c=arrow_kw.get('color','r'), ls=':', lw=2,zorder=-1)
 		self.polar_center_scatter(polar_ax)
 		polar_ax.set_xticks([])
@@ -114,7 +132,7 @@ class RatioProcessPlotter:
 			ax.scatter((self.g.EA+180)%360, self.g.ER, c='r', s=100, marker='x', zorder=1)
 			ax.set_title(f'm=1: max={self.g.ER:.2}', size=16)
 		pushax(ax,y = minmax(data))
-		ax.set_xlim(0, 360)
+# 		ax.set_xlim(0, 360)
 		return rline_data
 	
 	def _m1_flux_process_ratio_frame(self, pos, ax, outer):
@@ -136,7 +154,7 @@ class RatioProcessPlotter:
 		ax.plot(range_a2l, smooth, c=[1, 1, 1, 0], zorder=-1)
 		rline_data = np.array(ax.plot(np.arange(pos)*index_to_deg,
 							  smooth[:pos], c=color, zorder=-1)[0].get_data())
-		ax.set_xlim(0, 360)
+# 		ax.set_xlim(0, 360)
 		if pos==a2l:
 			angle = (angle+180)%360
 			vline(angle, ax=ax)
@@ -156,20 +174,22 @@ class RatioProcessPlotter:
 		
 		if pos is None:
 			pos = np.argmax(self.g.m2score_ar[:,1])
-		t, r = ext_array[pos%a2l,:2]
-		t*=deg_to_rad
-		arrowprops = {
-			**dict(arrowstyle="->", color='r', lw=2, shrinkA=0, shrinkB=0),
-			**arrow_kw
-		}
-		polar_ax.annotate("", xytext=[t, 0], xy=[t, r], zorder=-1,
-						  arrowprops=arrowprops)
+		
+		theta, radius = ext_array[pos%a2l,:2]
+		theta*=deg_to_rad
+		
+		arrowprops = dict(arrowstyle="->", color='r', lw=2, shrinkA=0, shrinkB=0)
+		arrowprops.update(arrow_kw)
+		
+		polar_ax.annotate("", xytext=[theta, 0], xy=[theta, radius],
+						  zorder=-1, arrowprops=arrowprops)
 		
 		color = arrowprops['color']
-		polar_ax.plot([t+tau/2]*2, [0, ext_array[(pos+al)%a2l, 1]],
+		polar_ax.plot([theta+tau/2]*2, [0, ext_array[(pos+al)%a2l, 1]],
 					  lw=2, c=color, zorder=-1)
-		for a in (-1, 1):
-			polar_ax.plot([0, t+a*tau/4], [0, ext_array[(pos+a*ahl)%a2l, 1]],
+		for sign in (-1, 1):
+			polar_ax.plot([0, theta+sign*tau/4],
+						  [0, ext_array[(pos+sign*ahl)%a2l, 1]],
 						  c=color, ls=':', lw=2, zorder=-1)
 		
 		self.polar_center_scatter(polar_ax)
@@ -196,7 +216,7 @@ class RatioProcessPlotter:
 			ax.scatter((np.array([0,180])+tmax)%360, (rmax,rmax),
 					   c='b', s=100, marker='x', zorder=max_plot_prop(ax,'zorder')+1)
 			ax.set_title(f'm=2: max={rmax:.2} (m1::m2 = {(self.g.ER-1)/(rmax-1):.2})',size=16)
-		ax.set_xlim(0, 360)
+# 		ax.set_xlim(0, 360)
 		
 		return rline_data
 	
@@ -209,7 +229,7 @@ class RatioProcessPlotter:
 		)
 # 		if pos==a2l:
 # 			ax.plot(range_a2l*index_to_deg, rolling_gmean_wrap(data, aql))
-		ax.set_xlim(0, 360)
+# 		ax.set_xlim(0, 360)
 		
 		return rline_data
 	

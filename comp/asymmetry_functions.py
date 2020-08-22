@@ -955,13 +955,6 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 		
 		return
 	"""
-	IMPORTANT:
-	
-	if any issues arise in the m2 calculation, checks and commented-out implementation by the prior,
-		non-vectorized, non-refined version can be found in
-		'asymmetry_functions_non_decommented_11_12_18.py'
-	
-	
 	NOTES:
 		extentlist_graph and egda correspond to the actual graph in astronomical coordinates
 		the angles are not measured from E; they are measured from N
