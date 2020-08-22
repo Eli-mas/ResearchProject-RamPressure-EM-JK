@@ -12,6 +12,7 @@ from comp.computation_functions import reflect_reciprocate
 from comp.array_functions import reindex
 
 from plot.plotting_functions import get_edge_radius
+from plot.RatioProcessPlotter import RatioProcessPlotter
 
 
 
@@ -691,6 +692,12 @@ def zdata_regions(self):
 	zdata_regions[self.noncenter_y, self.noncenter_x] *= 1j
 	self.zdata_regions = zdata_regions
 	return self.zdata_regions
+
+
+def ratio_process_plotter(self):
+	self.ratio_process_plotter = RatioProcessPlotter(self)
+	return self.ratio_process_plotter
+
 
 """
 for input_array_type in sorted(('total_x', 'total_y', 'total_f', 'total_r', 'total_t_int', 'total_t')):

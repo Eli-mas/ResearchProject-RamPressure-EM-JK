@@ -42,9 +42,9 @@ meta_attributes=frozenset((
 	'compute','debug','save', 'absent','save'
 ))
 
+other_attributes = frozenset(('ratio_process_plotter',))
 
-
-dynamic_attributes = arrays | non_arrays
+dynamic_attributes = arrays | non_arrays | other_attributes
 all_attributes = frozenset(
 	MultiIterator(
 		dynamic_attributes, baseline_attributes,

@@ -1,0 +1,229 @@
+from functools import partialmethod
+
+from common.arrays.roll_wrap_funcs import rolling_gmean_wrap
+# from comp.computation_functions import *
+from comp.array_functions import get_region_inds, reindex, minmax
+import comp.asymmetry_functions as asy_funcs
+
+from matplotlib import gridspec, pyplot as plt
+import numpy as np
+
+from .plotting_functions import *
+
+from prop.asy_prop import *
+from prop.asy_prop_plot import *
+from prop.asy_defaults import *
+
+
+class RatioProcessPlotter:
+	func_template = 'm{m}_{qtype}_process_{ptype}_frame'
+	
+	def __init__(self, Ginstance):
+		self.g = Ginstance
+	
+	def polar_center_scatter(self, polar_ax):
+		polar_ax.scatter(0, 0, marker=(6,2,30), s=200, linewidths=2, c='g')
+	
+	def __get_process_frame_func(self, m, qtype, ptype):
+		"""get the relevant function for plotting a specific frame
+		in the process of calculating a particular asymmetry quantity.
+		By design these functions take arguments (index, Axes instance)"""
+		return getattr(self, self.func_template.format(m=m, qtype=qtype, ptype=ptype))
+	
+	def create_m_overview_axes(self, polar_space = 2, ratio_space = 4):
+		"""create four polar axes arrange horizontally above a larger ratio axis"""
+		g = gridspec.GridSpec(polar_space + ratio_space, 4)
+		polar_axes = np.array([
+			ax_0N(plt.subplot(g[:polar_space, i], polar=True, yticks=[]))
+			for i in range(4)
+		])
+		ax = plt.subplot(g[polar_space:, :])
+		return polar_axes, ax
+	
+	def overview_plots(self):
+		self.m1_extent_overview_plot()
+		self.m1_flux_overview_plot()
+		self.m1_ht_overview_plot()
+		self.m2_extent_overview_plot()
+		self.m2_flux_overview_plot()
+	
+	def __overview_plot(self, m, qtype):
+		polar_axes, ax = self.create_m_overview_axes()
+		locs = np.linspace(ahl/m, a2l/m, 4, dtype=int)
+		colors = 'rygb'
+		polar_plotter = self.__get_process_frame_func(m, qtype, 'polar')
+		for pax, p, c in zip(reindex(polar_axes,1), locs, colors):
+			polar_plotter(p, pax, arrow_kw = {'color':c})
+		
+		rline_data = self.__get_process_frame_func(m, qtype, 'ratio')(a2l, ax)
+		for l,c in zip(locs % a2l,colors):
+			ax.scatter(*rline_data[:, l],
+						c=c, marker=(3,0,l*index_to_deg), s=200
+			)
+		ax.set_xlim(-5,365)
+		paper_tex_save(
+			f'{self.g.filename} m{m} {qtype} overview', 'methods',
+			link_folder=(f'm{m} process', self.g.filename))
+	
+	def m1_extent_process_polar_frame(self, pos, polar_ax, arrow_kw={}, boundary = True):
+		if boundary: self.g.polar_boundary_plot(polar_ax)[0].set_zorder(-1)
+		t, r=self.g.extentlist_graph[pos%a2l]; t*=deg_to_rad
+		polar_ax.annotate(
+			"", xytext=[t, 0], xy=[t, r], zorder=-1,
+			arrowprops={**dict(arrowstyle="->", color='r', lw=2, shrinkA=0, shrinkB=0, zorder=-1), **arrow_kw})
+		polar_ax.plot(
+			[0, t+tau/2], [0, self.g.extentlist_graph[(pos+al)%a2l, 1]],
+			c=arrow_kw.get('color','r'), ls=':', lw=2,zorder=-1)
+		self.polar_center_scatter(polar_ax)
+		polar_ax.set_xticks([])
+		
+	def _m1_flux_process_polar_frame(self, pos, polar_ax, outer, arrow_kw = {}):
+		"""
+		
+		:param self: Galaxy instance
+		:param pos: varies from 0 - a2l
+		:param polar_ax: polar axis
+		:param outer: show outer flux vs. global flux
+		:param arrow_kw: gets passes to arrow plotting in self.g.show_m1_regions
+		:return:
+		"""
+		self.g.show_m1_regions(polar_ax=polar_ax, active=True,
+						angle = pos * index_to_deg, outer = outer, arrow_kw = arrow_kw)
+	
+	def m1_extent_process_ratio_frame(self, pos, ax, unsmoothed=True):
+		"""
+	
+		:param self: Galaxy instance
+		:param pos: varies from 0 - a2l
+		:param ax: standard cartesian axis
+		:return:
+		"""
+		data = self.g.extentratio[:, 1]
+		if unsmoothed:
+			ax.plot(np.arange(pos) * index_to_deg, data[:pos],
+					ls = '--', zorder = -1, label = 'extent ratio (unsmoothed)')
+		
+		rline_data = None
+		if pos==a2l:
+			rline_data = np.array(
+				ax.plot(range_a2l*index_to_deg, rolling_gmean_wrap(data, ahl),
+						c=ext_color, zorder=0, label='extent ratio')
+				[0].get_data()
+			)
+			vline(self.g.EA+180, mod=360, ls=':', ax=ax, lw=2)
+			ax.scatter((self.g.EA+180)%360, self.g.ER, c='r', s=100, marker='x', zorder=1)
+			ax.set_title(f'm=1: max={self.g.ER:.2}', size=16)
+		pushax(ax,y = minmax(data))
+		ax.set_xlim(0, 360)
+		return rline_data
+	
+	def _m1_flux_process_ratio_frame(self, pos, ax, outer):
+		"""
+	
+		:param self: Galaxy instance
+		:param pos: varies from 0 - a2l
+		:param ax: standard cartesian axis
+		:param outer: outer flux?
+		:return:
+		"""
+		if outer:
+			smooth, ratio, angle=self.g.fluxscore_ar[:, 1], self.g.FR, self.g.FA
+			color=flux_color
+		else:
+			smooth, ratio, angle=self.g.htscores_ar[:, 1], self.g.HTR, self.g.HTA
+			color=ht_color
+		
+		ax.plot(range_a2l, smooth, c=[1, 1, 1, 0], zorder=-1)
+		rline_data = np.array(ax.plot(np.arange(pos)*index_to_deg,
+							  smooth[:pos], c=color, zorder=-1)[0].get_data())
+		ax.set_xlim(0, 360)
+		if pos==a2l:
+			angle = (angle+180)%360
+			vline(angle, ax=ax)
+			ax.scatter(angle, ratio, c='b', s=100, marker='x', zorder=1)
+		
+		return rline_data
+	
+	def m2_extent_process_polar_frame(self, pos, polar_ax, arrow_kw={},
+									  boundary = True, deprojected=False):
+		if boundary:
+			self.g.polar_boundary_plot(polar_ax, projected=not deprojected,
+									   deprojected=deprojected)[0].set_zorder(-1)  #
+		
+		ext_array = self.g.extentlist_graph_deproject \
+					if deprojected \
+					else self.g.extentlist_graph
+		
+		if pos is None:
+			pos = np.argmax(self.g.m2score_ar[:,1])
+		t, r = ext_array[pos%a2l,:2]
+		t*=deg_to_rad
+		arrowprops = {
+			**dict(arrowstyle="->", color='r', lw=2, shrinkA=0, shrinkB=0),
+			**arrow_kw
+		}
+		polar_ax.annotate("", xytext=[t, 0], xy=[t, r], zorder=-1,
+						  arrowprops=arrowprops)
+		
+		color = arrowprops['color']
+		polar_ax.plot([t+tau/2]*2, [0, ext_array[(pos+al)%a2l, 1]],
+					  lw=2, c=color, zorder=-1)
+		for a in (-1, 1):
+			polar_ax.plot([0, t+a*tau/4], [0, ext_array[(pos+a*ahl)%a2l, 1]],
+						  c=color, ls=':', lw=2, zorder=-1)
+		
+		self.polar_center_scatter(polar_ax)
+		polar_ax.set_xticks([])
+	
+	def m2_flux_process_polar_frame(self, pos, polar_ax, arrow_kw={}):
+		self.g.show_m2_regions(polar_ax=polar_ax, active=True,
+						angle=pos * index_to_deg, arrow_kw=arrow_kw)
+	
+	def m2_extent_process_ratio_frame(self, pos, ax, unsmoothed=True):
+		data = self.g.m2score_ar[:,1]
+		keepax(data, ax=ax)
+		if unsmoothed:
+			ax.plot(np.arange(pos)*index_to_deg, data[:pos],
+					label='m=2 extent ratio (unsmoothed)')
+		rline_data = None
+		if pos==a2l:
+			rline_data = np.array(
+							ax.plot(*self.g.m2score_ar.T,
+							label='m=2 extent ratio',c='r')[0].get_data()
+						 )
+			tmax,rmax = self.g.m2score_ar[np.argmax(self.g.m2score_ar[:,1]),:2]
+			vline(np.array((0,180))+tmax, mod=360, ls='--', ax=ax, lw=1)
+			ax.scatter((np.array([0,180])+tmax)%360, (rmax,rmax),
+					   c='b', s=100, marker='x', zorder=max_plot_prop(ax,'zorder')+1)
+			ax.set_title(f'm=2: max={rmax:.2} (m1::m2 = {(self.g.ER-1)/(rmax-1):.2})',size=16)
+		ax.set_xlim(0, 360)
+		
+		return rline_data
+	
+	def m2_flux_process_ratio_frame(self, pos, ax):
+		data = self.g.m2fluxscore_ar[:, 1]
+		ax.plot(data, c=[1, 1, 1, 0])
+		rline_data = np.array(
+			ax.plot(np.arange(pos)*index_to_deg, data[:pos])
+			[0].get_data()
+		)
+# 		if pos==a2l:
+# 			ax.plot(range_a2l*index_to_deg, rolling_gmean_wrap(data, aql))
+		ax.set_xlim(0, 360)
+		
+		return rline_data
+	
+	m1_flux_process_polar_frame = partialmethod(_m1_flux_process_polar_frame, outer=True)
+	m1_ht_process_polar_frame = partialmethod(_m1_flux_process_polar_frame, outer=False)
+	
+	m1_flux_process_ratio_frame = partialmethod(_m1_flux_process_ratio_frame, outer=True)
+	m1_ht_process_ratio_frame = partialmethod(_m1_flux_process_ratio_frame, outer=False)
+	
+	m1_extent_overview_plot = partialmethod(__overview_plot, m=1, qtype='extent')
+	m1_flux_overview_plot = partialmethod(__overview_plot, m=1, qtype='flux')
+	m1_ht_overview_plot = partialmethod(__overview_plot, m=1, qtype='ht')
+	
+	m2_extent_overview_plot = partialmethod(__overview_plot, m=2, qtype='extent')
+	m2_flux_overview_plot = partialmethod(__overview_plot, m=2, qtype='flux')
+
+__all__ = ('RatioProcessPlotter',)

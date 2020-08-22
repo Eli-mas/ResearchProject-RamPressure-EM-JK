@@ -36,7 +36,7 @@ from cls.plotters import galaxy_plot_funcs, galaxy_fig_funcs
 from .galaxy_attribute_information import (
 	all_attributes, dynamic_attributes, get_file_info, m2_attributes, arrays,
 	observational_only_attributes, centroid_angle_attrs, centroid_radius_attrs,
-	nonsaveable_arrays
+	nonsaveable_arrays, other_attributes
 )
 from . import Galaxy_getters
 
@@ -199,7 +199,7 @@ class _Galaxy:
 		
 		# does the Galaxy class know how to retrieve this?
 		if attr in getters:
-			if super().__getattribute__('compute'):
+			if super().__getattribute__('compute') or attr in other_attributes:
 # 				print('computing attribute:',attr)
 				result = getters[attr](self)
 			else:
@@ -419,41 +419,6 @@ class _Galaxy:
 
 		self.EA_trig, self.ER_trig = EA_calc(self.score_trig)
 		self.qEA_trig, self.qER_trig = EA_calc(self.qscore_trig)
-
-	"""def compfunc_map(self, attributes, computer, prepend='', append=''):
-		for t in attributes: setattr(self, '_get__' + prepend + t + append, computer)"""
-
-	"""
-	def load_qset(self, quantity):
-		qtype = computable_quantities_loaders[quantity]
-		self._setattrs_unzip(
-			computable_quantities_sets[qtype],
-			self._load_array(qtype)
-		)
-	
-	def save_qset(self, qtype):
-		self._save_array(qtype, np.array(self.getattrs(*computable_quantities_sets[qtype])))
-	"""
-	"""
-	def load_fixed_quantities(self):
-		for attr in baseline_attributes:
-			self.load_attr(attr)
-
-	def load_names_and_paths(self):
-		self._load_attr('openname')
-		self._load_attr('filetype')
-
-	def _save_array(self, artype, arr, **kw):
-		if self.save: return save_array(
-			format_npy_path(self.filename, artype), arr,
-			tests=self.mmap_tests, full_tests=self.mmap_full_tests,
-			ret_mmap=self.retain_mmaps
-		)
-		return arr
-
-	def _load_array(self, artype, **kw):
-		return load_array(format_npy_path(self.filename, artype), ret_mmap=self.retain_mmaps, **kw)
-	"""
 		
 
 class Galaxy(_Galaxy):	
@@ -462,10 +427,6 @@ class Galaxy(_Galaxy):
 	
 	# again, keep memory usage down
 	__slots__ = ()
-	
-	"""def __init__(self,*a,**kw):
-		super().__init__(*a,**kw)
-		print(f'initializing Galaxy with args=<{a}>, kwargs=<{kw}>')"""
 		
 	@classmethod
 	def write_to_h5(cls, *filenames):
@@ -478,7 +439,8 @@ class Galaxy(_Galaxy):
 	@classmethod
 	def read_from_h5(filenames, attributes):
 		"""Not implemented. Will be useful if we want to retrieve data
-		for particular galaxies without establishing Galaxy instances."""
+		for particular galaxies without establishing Galaxy instances.
+		Of interest but not essential at the moment."""
 		...
 		NotImplemented
 	
@@ -547,25 +509,6 @@ class Galaxy(_Galaxy):
 		self.deprojection_plot()
 		self.m2_flux_process_plot()
 		self.m2_extent_process_plot()
-
-# 	def get_box_radii(self, trunc_x0=0, trunc_x1=0, trunc_y0=0, trunc_y1=0):
-# 		xspan_half=self.zdata.shape[1]//2
-# 		xlow=int(xspan_half*(trunc_x0))
-# 		xhigh=int(xspan_half*(2-trunc_x1))
-# 		yspan_half=self.zdata.shape[0]//2
-# 		ylow=int(yspan_half*(trunc_y0))
-# 		yhigh=int(yspan_half*(2-trunc_y1))
-# 		box_pixels=np.row_stack((
-# 			np.column_stack((np.full(yhigh-ylow, xlow), np.arange(ylow, yhigh))), 
-# 			np.column_stack((np.full(yhigh-ylow, xhigh), np.arange(ylow, yhigh))), 
-# 			np.column_stack((np.arange(xlow, xhigh), np.full(xhigh-xlow, ylow))), 
-# 			np.column_stack((np.arange(xlow, xhigh), np.full(xhigh-xlow, yhigh)))
-# 		))
-# 		box_tr=np.column_stack(c_to_p(*box_pixels.T, self.xpix, self.ypix))
-# 		box_tr=box_tr[np.argsort(box_tr[:, 0])]
-# 		box_tr[:, 0]*=rad_to_index
-# 		return box_tr[np.searchsorted(box_tr[:, 0], range_a2l), 1]
-	#
 
 # functions defined in other modules intended to be set on this class
 for func in galaxy_plot_funcs.__all__:
