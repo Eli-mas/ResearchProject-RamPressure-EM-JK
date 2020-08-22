@@ -1,3 +1,16 @@
+"""The h5 module is an abstraction that allows the Galaxy class to communicate
+with data stored in the filesystem. It allows for accessing two kinds of data:
+scalar data (e.g. individual ratios, angles) and arrays. Internally, everything
+is stored in arrays in an hdf5 file, and this module, through the class
+'Galaxy_H5_Interface' and other functions, allow for accessing data indexed by:
+	(1) Galaxy name
+	(2) Data name
+
+Given that h5py (perhaps hdf5 in general) can get slow when making a large
+number of repeated calls to rows at different indices within a Dataset, an
+algorithm is also contained to group rows contiguous to one another when
+writing scalars to disk to minimze the number of distinct write events required.
+"""
 import os, traceback
 from collections import OrderedDict, ChainMap
 
@@ -70,6 +83,7 @@ def _intialize_galaxy_data_file_scalars(h5_file):
 		group.attrs.create('filenames',included_galaxies)
 
 def open_galaxy_data_file(mode):
+	"""Open (do not return) the hdf5 file"""
 	if not os.path.exists(H5_PATH):
 		initialize_galaxy_data_file()
 	if mode == 'r': return h5pickle.File(H5_PATH,'r')
@@ -77,20 +91,30 @@ def open_galaxy_data_file(mode):
 	raise ValueError(f"mode must be one of ('r', 'w', 'a'); you provided '{mode}'")
 
 def write_h5_file_contents():
+	"""Write into a file a pretty-printed list of all groups and datasets
+	contained in the hdf5 file. Datasets have size in bytes recorded in the file."""
 	path = f"{H5_PATH[:H5_PATH.rfind('/')]}/h5 fields.file"
 	
 	from collections import deque
 	from h5py import Dataset, File
 	
 	d = deque()
-	def add(n,o):
-		if isinstance(o,Dataset): d.append((n,o[()].nbytes))
-		else: d.append((n,None))
 	
+	# when writing to a file, record the size in bytes of each Dataset
+	# object encountered; n-->'name', o-->'object'
+	def add(n, o):
+		if isinstance(o, Dataset): d.append((n, o[()].nbytes))
+		else: d.append((n, None))
+	
+	# h5_file.visititems recursively walks elements contained in the hdf5 file,
+	# submitting two arguments to add: (object name, object);
+	# since 'add' always returns None, all elements (objects) are processed
 	h5_file = File(H5_PATH,'r')
 	h5_file.visititems(add)
 	h5_file.close()
 	
+	# utility function to pretty-print a header name based on its depth within
+	# the hdf5 file; ensures that headers appear nested when written
 	def makeline(name,size):
 		s=name.split('/')
 		depth,field = len(s)-1,s[-1]
@@ -98,6 +122,7 @@ def write_h5_file_contents():
 		if size is None: return f'{t}{field}'
 		return f'{t}{field}: size = {size}'
 	
+	# should I explicitly chunk the writing?
 	with open(path,'w') as out:
 		out.write('\n'.join(map(makeline,*zip(*d))))
 
@@ -130,7 +155,7 @@ class Galaxy_H5_Interface:
 		cls._instance._intialized = False
 		return cls._instance
 	
-	def __init__(self,preload_scalars=True):
+	def __init__(self, preload_scalars=True):
 # 		print('__init__ in Galaxy_H5_Interface')
 		try:
 			# only initialize once; if already done, this runs without error
@@ -223,7 +248,8 @@ class Galaxy_H5_Interface:
 			for g,gal_list in sample_filename_lists.items()
 		]
 		
-		if len(scalars)==1: return scalars[0]
+		if len(scalars)==1:
+			return scalars[0]
 		return pd.concat(scalars)
 	
 	def get_scalars_for_filenames_from_single_sample(self, sample_name, *galaxies, attr=None):
