@@ -28,7 +28,7 @@ The overview of what is here:
 * *prop*: basic quantities and variable definitions. The scripts in this module are mostly for defining the galaxies that are used elsewhere in the project; I have left most out for the moment to reduce clutter.
 
 ## Usage
-This repository is posted to GitHub for reference; it is in no state to be downloaded to another machine as a plug-and-play package. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers. Note that there is some critical code not in this repository, located on my machine outside the working tree that defines this repository; I will get this up in the near future.
+This repository is posted to GitHub for reference; it is in no state to be downloaded to another machine as a plug-and-play package. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers.
 
 The state of comments in the code is variable--I am working on this. There are also some points of general maintenance to be handled, such as removing obsolete functions, but for the most part what is in these files is relevant to the current work.
 
