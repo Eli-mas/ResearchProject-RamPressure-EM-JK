@@ -1,5 +1,5 @@
 # ResearchProject-RamPressure-EM-JK
-Repository to track the development of an astrophysical research project conducted with Jeffrey Kenney of Yale's astronomy department. I have personally been on this project since June 2016.
+Repository to track the development of an astrophysical research project conducted with [Jeffrey Kenney](http://www.astro.yale.edu/kenney/pages/index.html) of Yale's astronomy department. I have personally been on this project since June 2016.
 
 __*Most recent update: (8-15-20)*__
 
@@ -30,6 +30,6 @@ The overview of what is here:
 ## Usage
 This repository is posted to GitHub for reference; it is in no state to be downloaded to another machine as a plug-and-play package. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers. Note that there is some critical code not in this repository, located on my machine outside the working tree that defines this repository; I will get this up in the near future.
 
-The state of comments in the code is variable--this will improve as we draw closer to publishing. There are also some points of general maintenance to be handled, such as removing obsolete functions, but for the most part what is in these files is relevant to the current work.
+The state of comments in the code is variable--I am working on this. There are also some points of general maintenance to be handled, such as removing obsolete functions, but for the most part what is in these files is relevant to the current work.
 
-When we start publishing I can shift gears to develop a proper, all-batteries-included software package out of this if there is interest in the research community. The more likely scenario is that I will develop something out of the generalized routines I have developed over the course of this research.
+When we start publishing I can shift gears to develop a proper, all-batteries-included software package out of this if there is interest in the research community. The more likely scenario is that I will develop something out of the generalized routines I have developed over the course of this research, e.g. in the [common module](https://github.com/Eli-mas/common).
