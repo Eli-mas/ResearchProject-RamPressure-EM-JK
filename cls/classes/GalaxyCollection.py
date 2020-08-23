@@ -277,7 +277,25 @@ class _GalaxySeries(_GalaxyCollection):
 	
 	def __iter__(self): return iter(self.instances)
 	
-	def sig_indices(self, m2=False):
+	def sig_angle_indices(self, angle, threshold = sig_angle_cutoff):
+		return np.where(self.abs_offset(angle,squeeze=True) <= threshold)[0]
+	
+	def sig_angle_start(self, angle, threshold = sig_angle_cutoff):
+		return self.sig_angle_indices(angle, threshold=threshold)[0]
+	
+	def sig_asy_and_angle_indices(self, angle, m2=True, threshold = sig_angle_cutoff):
+		cond=(self.ER >= sig_ext_cutoff) & (self.FR >= sig_flux_cutoff) & \
+			 (self.abs_offset(angle, squeeze=True) <= threshold)
+		if m2 and self.inc<90:
+			cond &= ((self.ER / self.m2ER > sig_m1_m2_ext_cutoff) & \
+					(self.FR - self.m2FR > sig_m1_m2_flux_cutoff))
+		return np.where(cond)[0]
+	
+	def sig_asy_and_angle_start(self, angle, m2=True, threshold = sig_angle_cutoff):
+		try: return self.sig_asy_and_angle_indices(angle, m2=m2, threshold=threshold)[0]
+		except IndexError: return -1
+	
+	def sig_indices(self, m2=True):
 		"""
 		Get the indices, corresponding to the **instances** array, 
 		when the asymmetry is significant. If m2=False, this considers
@@ -288,6 +306,9 @@ class _GalaxySeries(_GalaxyCollection):
 		if m2 and self.inc<90:
 			cond &= ((self.ER/self.m2ER>sig_m1_m2_ext_cutoff) & (self.FR-self.m2FR>sig_m1_m2_flux_cutoff))
 		return np.where(cond)[0]
+	
+	def sig_start(self, m2=True):
+		return self.sig_indices(self, m2=m2)[0]
 	
 	@property
 	def sig_indices_(self):

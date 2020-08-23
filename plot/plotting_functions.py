@@ -495,7 +495,82 @@ def plot_asy_contours(ax_image,ax_colorbar,zdata,contour_plot,xpix_i,ypix_i,edge
 	ax_image.scatter(xpix_i,ypix_i,marker='+',s=200,c='orange')
 	ax_image.set_xlim(xpix_i-edge_radius/pix_scale_arcsec,xpix_i+edge_radius/pix_scale_arcsec)
 	ax_image.set_ylim(ypix_i-edge_radius/pix_scale_arcsec,ypix_i+edge_radius/pix_scale_arcsec)
+
+def stabilize_angles(ar,mod,pr=False):
+	if ar.ndim>2:
+		raise ValueError('`stabilize_angles` is not configured for arrays with ndim>2')
 	
+	elif ar.ndim==2:
+		"""
+		assumes that the different angle sets are stacked as separate columns,
+		as they would be passed to plt.plot
+		"""
+		return np.column_stack([stabilize_angles(ar[:,i],mod,pr=pr) for i in range(ar.shape[1])])
+		
+	else:
+		original=ar
+		nans=False
+		nancond=np.isnan(ar)
+		if np.any(nancond):
+			nans=True
+			nonnan=np.where(~nancond)
+			ar=ar[nonnan]
+		polar_dif=np.append(0.,polar_offset(ar[1:],ar[:-1],mod))
+		stabilized=np.add.accumulate(polar_dif)+ar[0]
+		if nans:
+			new=np.full_like(original,nan)
+			new[nonnan]=stabilized
+			stabilized=new
+		if pr:
+			dif=np.round(original-stabilized,10)
+			print('<original-stabilized>:',dif[~np.isnan(dif)]%mod,sep='\n')
+		return stabilized
+
+@makeax
+def stabilize_plot(ar,mod=360,center=0,pr=False,ax=None,
+	X_array=None,set_ylim=True,scatter=False,test=False,return_plots=False,
+	center_on_0=False, **kwargs):
+	"""see plotting_functions_former_01_21_19.py for former algorithm"""
+	if X_array is None: X_array=np.arange(len(ar))
+	stabilized=stabilize_angles(ar,mod,pr=pr)
+
+	if center_on_0:
+		stabilized -= center
+		center -= center
+
+	bottom=center-mod/2
+	top=center+mod/2
+	add_to_max=1+(bottom-np.nanmax(stabilized))//mod
+	add_to_min=(top-np.nanmin(stabilized))//mod
+
+	plots=[]
+	for count,v in enumerate(np.arange(add_to_max,add_to_min+1)):
+		if count==1: kwargs['label']=None
+		if scatter:
+			try: plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
+			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
+		else:
+			try: plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
+			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
+		
+		if stabilized.ndim==2:
+			for l,lo in zip(plots[-stabilized.shape[1]:],plots[:stabilized.shape[1]]):
+				l.set_color(lo.get_color())
+	if stabilized.ndim==1:
+		for l in plots[1:]: l.set_color(plots[0].get_color())
+
+	if set_ylim:
+		ax.set_ylim(bottom,top)
+	else:
+		plots = sorted(plots,key = lambda p: np.abs(p.get_data()[1]-center).mean())
+		for p in plots[1:]: p.remove()
+		del plots[1:]
+		autoscale(ax,1)
+
+	if test: ax.set_title('count=%i'%(count+1))
+	if return_plots: return plots
+	return stabilized
+
 
 from mpl_wrap.plotting_functions import __all__
 __all__ = ('default_sig_angle_kwargs', 'polar_on_cart_plot', 
@@ -507,7 +582,8 @@ __all__ = ('default_sig_angle_kwargs', 'polar_on_cart_plot',
 'plot_shortside', 'default_sig_region_kwargs', 'high_i_cutoff_list', 'misc_fig_save',
 'default_sig_m1_m2_kwargs', 'create_dual_axis', 'polar_fill', 'iter_axis_ticklabels',
 'sig_asy_plot', 'radial_distribution', 'default_sig_asy_kwargs',
-'iter_axis_ticks', 'makefig', 'paper_tex_save', 'topical_fig_save', *__all__)
+'iter_axis_ticks', 'makefig', 'paper_tex_save', 'topical_fig_save','stabilize_angles','stabilize_plot'
+, *__all__)
 # 'ax_select', 
 
 

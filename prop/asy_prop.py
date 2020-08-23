@@ -1,56 +1,7 @@
 """basic quantities used for computation across this project."""
 
-#try: TERMINAL_ROWS,TERMINAL_COLUMNS=(int(v) for v in check_output(['stty', 'size']).split())
-#except CalledProcessError: TERMINAL_ROWS=TERMINAL_COLUMNS=None
-"""debug=False
-debug_multi=False
-debug_multi_verbose=False
-debug_keys={
-'qscore offset':False,
-'beam smear correction':False,
-'score_gmean':False,
-'tail spectrum':False,
-'points':False,
-'total_ar lexsort':False,
-'njit extentlist':False,
-'moving centroid radial':False,
-'moving centroid cutoff':False,
-'flux histograms':False,
-'fr gradient':False,
-'outer pixel test':False,
-'optimizing extentlist':True
-}
-debug_master_keys={
-'ratio_calc':any(debug_keys[k] for k in {'tail spectrum',}),
-'m2_calc':any(debug_keys[k] for k in {'beam smear correction','score_gmean'}),
-'moving centroid':any(debug_keys[k] for k in {'moving centroid radial','moving centroid cutoff'})
-}
-debug_master_keys['extra flux analyze']=bool(sum((
-	debug_master_keys['moving centroid'], debug_keys['fr gradient'],
-	debug_keys['flux histograms']
-)))
-debug_plot=False"""
-
-#smoothing_test=True
-
-#enable_numba_funcs=False if debug else False
-
-#asy_noise=False
-#noise_check=False
-#noise_trials=1000
-
 
 comp_plot_m=[1,2]#
-
-#multi=(not debug)
-
-######## {plotting}
-#if asy_noise: plotting=False
-#else: plotting=True
-
-#if multi: parallel_plotting=True
-#else: parallel_plotting=False
-########\{plotting}
 
 import numpy as np
 tau = 2*np.pi
