@@ -40,7 +40,7 @@ def rp_trace_plot(self, reject_by_m2 = False):
 
 	#m1_m2_flux_ax=m1_m2_ext_ax.twinx()
 	if self.inc != 90:
-		m1_m2_flux_ax=self.ratio_plot(ax=m1_m2_ext_ax, title=False, save=False, m2=True, which={0, 1}, show_rp=False)
+		m1_m2_flux_ax=self.ratio_plot(('ER','FR'), ax=m1_m2_ext_ax, title=False, save=False, m2=True, show_rp=False)
 		for s, m, l in zip((None, np.s_[::2]), (None, 'o'), (None, 'ER/m2ER')):
 			self.timeplot(
 				self.ER/self.m2ER, c=ext_color, marker=m, 

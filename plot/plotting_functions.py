@@ -237,12 +237,7 @@ def eff_rad_calc(region, f_eff=.9):
 
 def radial_distribution(Ginstance,ax=None,ylabel=True,text_right=1,text_top=.99,text_hspace=.2):
 	"""
-	Get the radial distribution of flux 
-	
-	eff_rad_calc() is now defined outside of this function;
-	it was formerly known as effectivize()
-	
-	algorithms are now vectorized; former algorithms in prior versions
+	Get the global radial distribution of flux
 	"""
 	filename,R25,=Ginstance.filename,Ginstance.R25
 	_,shortside_median=get_shortside_data(Ginstance)
@@ -378,7 +373,6 @@ def sig_asy_plot(ER,FR,*args,**kwds):
 	fill_condition = sig_asy_mask(ER,FR)
 	res=sig_region_plot(fill_condition,*args,**kwds)
 	return res
-"""prior sig_asy_plot definition in simulation_definitions_former.py"""
 
 default_sig_angle_kwargs=dict(facecolor='None',edgecolor='y',alpha=.4,hatch='/')
 def sig_angle_plot(EA,FA,*args,**kwds):
@@ -393,7 +387,7 @@ def sig_angle_plot(EA,FA,*args,**kwds):
 	return res
 """prior sig_angle_plot definition in simulation_definitions_former.py"""
 	
-default_sig_m1_m2_kwargs=dict(facecolor='None',edgecolor='lightskyblue',alpha=.4,hatch='o')
+default_sig_m1_m2_kwargs=dict(facecolor='None',edgecolor=color_darken('lightskyblue',.8),alpha=.4,hatch='o')
 def sig_m1_m2_plot(ER,FR,m2ER,m2FR,*args,**kwds):
 	"""Calculate the region where asymmetry is significant
 	as deemed by m=1 extent and flux ratios and where m=1

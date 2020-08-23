@@ -65,8 +65,8 @@ def timeplot(self, attr, ax=None, aplot=False, mode='plot',
 	
 	pkw=get_attribute_plot_kw(attr, mode)
 	if isinstance(attr, str):
-		try: pkwargs.setdefault('label', getattr(LABELS,attr))
-		except AttributeError: pkwargs.setdefault('label',attr)
+		try: pkwargs.setdefault('label', getattr(LABELS, attr))
+		except AttributeError: pkwargs.setdefault('label', attr)
 	pkw.update(pkwargs)
 
 	if sig_asy is not None:
@@ -76,9 +76,8 @@ def timeplot(self, attr, ax=None, aplot=False, mode='plot',
 		adjust = 180
 	if adjust:
 		res = res+adjust
-	#print(f'timeplot: tplot[0]={tplot[0]}, aplot={aplot}')
+	
 	if aplot:
-# 		if self.galaxy == '4522': res = self.reverse(res)
 		if offsets:
 			pkw.setdefault('center', 0)
 			res = self.offset(res)
@@ -126,34 +125,31 @@ def get_attribute_plot_kw(attr, mode='plot'):
 	return pkw
 
 @makeax
-def ratio_plot(self, ax=None, title=False, title_append='',
-			   which=set(range(7)), weights=False,
-			   save=True, m2=False, show_rp = True,
-			   **kw):
+def ratio_plot(self, ratios=None, ax=None, title=False, title_append='',
+			   save=False, m2=False, show_rp = True, **kw):
 	ax2=ax.twinx()
 	
-	for i, (attr, axis) in enumerate(zip(
-		('ER', 'FR', 'qER', 'qFR', 'HTR', 'ER_trig', 'FR_trig'), 
-		( ax,  ax2, ax,   ax2,  ax,   ax,       ax2)
-	)):
-		if i not in which: continue
-		
-		if weights and attr[:-4]=='trig': continue
-		
-		initial_plot=self.timeplot(attr, ax=axis, label=getattr(LABELS,attr), **kw)
-		
-		if weights:
-			for line in initial_plot: line.set_color(mpl_colors[0])
-			for j, extension in enumerate(('_trig', '_rw', '_trig_rw')):
-				try:
-					attr_new=attr+extension
-					self.timeplot(attr_new, ax=axis, color=mpl_colors[j+1], label=attr_new)
-				except AttributeError: pass
+	axes = {'ER': ax,'qER': ax,'ER_trig': ax,'HTR': ax,
+			'FR': ax2,'qFR': ax2,'FR_trig': ax2}
 	
-	if m2 and not weights:
-		self.timeplot('m2ER', ax=ax, c=ext_color, marker='+')#, c='b'
+	axes_count = {ax:False, ax2:False}
+	
+	if ratios is None:
+		for r,_ in axes.items():
+			self.timeplot(r, ax=_, label=getattr(LABELS, r), **kw)
+			axes_count[_] = True
+# 			print(f'{r}: {getattr(LABELS, r)}')
+	else:
+		for r in ratios:
+			self.timeplot(r, ax=axes[r], label=getattr(LABELS, r), **kw)
+			axes_count[axes[r]] = True
+	
+	if m2:
+		if axes_count[ax]:
+			self.timeplot('m2ER', ax=ax, c=ext_color, marker='+')#, c='b'
 		#self.timeplot('m2ER', ax=ax, c=ext_color, slice=np.s_[::2], marker='o')
-		self.timeplot('m2FR', ax=ax2, c=flux_color, marker='+')#, c='r', marker=(6, 2)
+		if axes_count[ax2]:
+			self.timeplot('m2FR', ax=ax2, c=flux_color, marker='+')#, c='r', marker=(6, 2)
 		#self.timeplot('m2FR', ax=ax2, c=flux_color, slice=np.s_[::2], marker='o')
 	
 	hline(0, ax=ax, c='b', zorder=-1)
@@ -161,20 +157,19 @@ def ratio_plot(self, ax=None, title=False, title_append='',
 	#ax.set_xlabel('t')
 	#if which-{1, 3}: ax.set_ylabel('Extent ratios')
 	#if which-{0, 2}: ax2.set_ylabel('Flux ratios')
-	if title: ax.set_title('Asymmetry ratios by time'+title_append)
+	if title:
+		ax.set_title('Asymmetry ratios by time'+title_append)
+	print ('ratio_plot: labels: ax:',ax.get_legend_handles_labels())
+	print ('ratio_plot: labels: ax2:',ax2.get_legend_handles_labels())
 	full_legend(ax, ax2, ncol=2)
-	print('aplot: self.directory =', self.directory)
+	print('ratio_plot: self.directory =', self.directory)
 
 	if show_rp and self.directory[0]=='v':
 		add_rp_profile(host_ax=ax, galaxy=self.galaxy)
 
 	savefile=link_folder='rplot'
-	if weights:
-		if which=={0, }: savefile+=' EA weights'
-		elif which=={1, }: savefile+=' FA weights'
-		else: raise ValueError('a weighted aplot with which=%s is not currently permitted'%(which))
-		link_folder='rplot weights'
-	if save: self.figsave(savefile, link_folder=link_folder)
+	if save:
+		self.figsave(savefile, link_folder=link_folder)
 	return ax2
 
 @makeax
@@ -187,8 +182,8 @@ def aplot(self, angles=None, ax=None, title=False, title_append='', zoom=False,
 	elif isinstance(angles, str):
 		angles = (angles,)
 	
-	for attr in angles:
-		self.timeplot(attr, ax=ax, label=getattr(LABELS, attr), aplot=True, zoom = zoom, **kw)
+	for a in angles:
+		self.timeplot(a, ax=ax, label=getattr(LABELS, a), aplot=True, zoom = zoom, **kw)
 	
 	offsets = kw.get('offsets',False)
 	hline(self.WA*(not offsets), zorder=-1, ax=ax, lw=2)
