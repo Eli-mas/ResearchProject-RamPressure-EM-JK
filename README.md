@@ -1,5 +1,5 @@
 # ResearchProject-RamPressure-EM-JK
-Repository to track the development of an astrophysical research project conducted with [Jeffrey Kenney](http://www.astro.yale.edu/kenney/pages/index.html) of Yale's astronomy department. I have personally been on this project since June 2016.
+Repository to track the development of an astrophysical research project conducted with [Jeffrey Kenney](http://www.astro.yale.edu/kenney/pages/index.html) of Yale's astronomy department.
 
 ## Project aims and focus
 The purpose of the project is to develop a simple yet objective & reliable method for detecting the presence of ram pressure acting on a galaxy, and then estimating the direction of this pressure over the galaxy, given only a moment-0 map of the galaxy's gas content (HI [neutral hydrogen] for observational data, mixed for simulated data) at a particular time. We then seek to understand how our method performs on various galaxies for which we have data.
@@ -16,18 +16,28 @@ These five papers all stem from the methods that will be presented in the first 
 ## This repository
 I have posted the code here that pertains to the earlier papers, particularly the first three, with some miscellaneous scripting functions included. Code for potential future papers is not posted yet. Parts of this project depend on other modules that I have developed on my local machine; I will post parts of these in time.
 
-Components that allow the scripts to work but do not contribute to an understanding of the paper's methods, such as the file asy_io/asy_paths.py (which only defines paths to particular directories and files), are not included. A number of plotting routines are also not included yet (they will be closer to publication).
+Components that allow the scripts to work but do not contribute to an understanding of the paper's methods, such as files defining paths to other files on the machine, are not included. A number of plotting routines are also not included yet.
 
 The overview of what is here:
-* *asy_io*: miscellaneous functions relating to input and output.
-* *cls*: classes that make for convenient scripting and utility across the project.
-* *comp*: computational functions for different aspects of the project
-* *plot*: plotting functions, a few files are not yet included
-* *prop*: basic quantities and variable definitions. The scripts in this module are mostly for defining the galaxies that are used elsewhere in the project; I have left most out for the moment to reduce clutter.
+* `asy\_io`: miscellaneous functions relating to input and output.
+* `cls`: classes that make for convenient scripting and utility across the project.
+    - `analyze`: functions pertinent to the GalaxySeries class grouped modularly by general purpose
+    - `classes`: classes that provide an interface to data loading, storage, and computation
+        + `GalaxyCollection`: classes that aggregate across Galaxy objects. For simulation data, the contained GalaxySeries class is central.
+        + `h5`: fully encapsulating interface to h5py API
+        + `Galaxy`: The core of the project; provides a simple interface to access, store, and compute on data pertinent to an individual galaxy. The contained `Galaxy.py` file defines the Galaxy class, and other files help to organize the logic of this class.
+    - `plotters`: modules that contain functions meant to associate with the `Galaxy` or `GalaxySeries` classes. Modules are named according to the associations and purposes their functions serve.
+* `comp`: computational functions for different aspects of the project
+    - `array_functions.py`: lower-level array manipulation routines; somewhat miscllaneous, should probably be refactored.
+    - `asymmetry_functions.py`: the project revolves around calculating m=1/m=2 asymmetries; this script encodes the procedures for doing this for any provided galaxy.
+    - `computation_functions.py`: miscellaneous computation functions; should also be refactored, probably merged with `array_functions.py`.
+    - `contiguous.py`: Moment-0 maps, the raw data source, provide flux data across an array of pixels. But not all of these pixels involve the galaxy of interest--and some maps contain more than one galaxy. Calculating a galaxy's asymmetry requires assignment of pixels to the galaxy, without capturing other pixels. Our decision is that only pixels contiguous with the galaxy's center coordinate are to be considered for analysis, and this module encapsulates the logic of isolating these pixels--hence its name.
+    - `polar_functions.py`: routines to handle analysis of periodic data, i.e. data bounded on a finite interval in some modular space--e.g., calculating aggregate statistics on such data.
+    - `smoothing.py`: as with standard photography, astrophysical images come in different resolutions. We want those resolutions to be standard to the extent possible before analysis. For data that is of too high resolution, this is accomplished by smoothing over-resolved image data--hence the name of this module.
+* `plot`: incorporates functions to visualize data and make plots for publications. Many of these are used in the `papers` module, which is not yet published to this repository.
+* `prop`: basic quantities and variable definitions. The scripts in this module are mostly for defining the galaxies that are used elsewhere in the project; I have left most out for the moment to reduce clutter.
 
 ## Usage
-This repository is posted to GitHub for reference; it is in no state to be downloaded to another machine as a plug-and-play package. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers.
+This repository is posted to GitHub for reference; it is not meant to be downloaded to another machine as a plug-and-play package as of yet. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers.
 
 The state of comments in the code is variable--I am working on this. There are also some points of general maintenance to be handled, such as removing obsolete functions, but for the most part what is in these files is relevant to the current work.
-
-When we start publishing I can shift gears to develop a proper, all-batteries-included software package out of this if there is interest in the research community. The more likely scenario is that I will develop something out of the generalized routines I have developed over the course of this research, e.g. in the [common module](https://github.com/Eli-mas/common).

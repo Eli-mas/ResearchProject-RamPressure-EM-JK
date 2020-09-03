@@ -74,7 +74,7 @@ def fig_size_save(path,s=(13,8),resize=True,record=False,fig=None,**kw):
 	"""Resize a figure before saving it via 'makefig'."""
 	if fig is None: fig=plt.gcf()
 	if resize:
-		if not isinstance(resize,bool): fig.set_size_inches(fig.get_size_inches()*resize)
+		if not isinstance(resize,bool): fig.set_size_inches(np.array(fig.get_size_inches())*resize)
 		else: fig.set_size_inches(s)
 	return makefig(path,record=record,fig=fig,**kw)
 
