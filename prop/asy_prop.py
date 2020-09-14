@@ -1,8 +1,6 @@
 """basic quantities used for computation across this project."""
 
 
-comp_plot_m=[1,2]#
-
 import numpy as np
 tau = 2*np.pi
 
@@ -35,7 +33,7 @@ sig_angle_cutoff = 20
 from numpy import nan #, ndarray
 np.warnings.filterwarnings('ignore')
 
-__all__=('nan', 'comp_plot_m','tau','al','a2l','ahl','a1hl','aql','deg_to_rad',
+__all__=('nan', 'tau','al','a2l','ahl','a1hl','aql','deg_to_rad',
 'rad_to_deg','deg_to_index','index_to_deg','rad_to_index','index_to_rad',
 'sim_back_cutoff','deg','deny_m2_high_i','high_i_threshold','sig_ext_cutoff',
 'sig_flux_cutoff','sig_m1_m2_ext_cutoff','sig_m1_m2_flux_cutoff','sig_angle_cutoff',)

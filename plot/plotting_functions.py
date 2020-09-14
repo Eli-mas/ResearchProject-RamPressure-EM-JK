@@ -30,7 +30,7 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 
 from prop.ref_rel_data import *
-from prop.asy_prop_plot import color_darken
+from prop.asy_prop_plot import *
 
 from asy_io.asy_paths import *
 from asy_io.asy_io import makepath, get_shortside_data, touch_directory, merge_dicts
