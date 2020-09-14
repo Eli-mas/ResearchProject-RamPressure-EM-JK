@@ -2,8 +2,9 @@ import numpy as np
 
 from prop.asy_prop import *
 from prop.asy_defaults import *
-from .array_functions import reindex
+from .array_functions import reindex, ensure_elementwise, ensure_columnwise
 from common.arrays.roll_wrap_funcs import *
+from sklearn.linear_model import LinearRegression
 
 import matplotlib.pyplot as plt
 
@@ -242,13 +243,13 @@ def sig_angle_mask(EA, FA):
 	return (np.abs(EA) <= sig_angle_cutoff) & (np.abs(FA) <= sig_angle_cutoff)
 
 def regress_linear(x,y, predict=None, round=-1):
-	x = array_functions.ensure_columnwise(x)
+	x = ensure_columnwise(x)
 	reg = LinearRegression().fit(x,y)
 	
 	if predict is None:
 		results = reg.coef_.squeeze(), reg.intercept_, reg.score(x,y)
 	else:
-		predict = array_functions.ensure_columnwise(array_functions.ensure_elementwise(predict))
+		predict = ensure_columnwise(ensure_elementwise(predict))
 		results = reg.coef_.squeeze(), reg.intercept_, reg.score(x,y), reg.predict(predict)
 	if round >= 0: return tuple(np.round(v,round) for v in results)
 	return results
