@@ -1,65 +1,29 @@
-"""
-Notes:
-current alrogithm for beam-related corrections is `correct_for_beam_smearing_new`
-	former algorithms may be found in asymmetry_functions_adc_non_decommented_02_19_15.py
-
-02-19-19 removals:
-get_outer_border_coors,original_extent_at_index,original_extentlist,
-<verbose, non-functionalized version of centroid_angle_calc>,
-commented lines in {digitize_outer_flux,get_galaxy_inner_regions,ratio_angle_calc,get_m2_inner_boundary,m2_calc}
-
-02-22-19:
-	ratio_angle_calc revised and functionalized;
-		fluxscore_ar,htscores_ar now start at angle 0 degrees rather than -90 degrees
-	
-	!	!	! a note about the `interior_edge_by_shortside` function !	!	!
-		at some point, the function had a statement at its beginning:
-			>>> interior_edge=np.array(extentlist_graph)
-		
-		I removed this line, and then had this problem:
-			the function assigned the name interior_edge to the array referenced by extentlist_graph,
-				and then modified the array in place
-			
-			thus the array referenced by 'extentlist_graph' became corrupted by this function
-			
-			the fix: bring back in a statement like the line removed, but use np.copy:
-				>>> interior_edge=np.array(extentlist_graph)
-		
-		IMPORTANT
-		Going forward, if I want to make copies of data, do not use np.array
-		Use np.copy, it is more explicit and tells me that I am interested in making a copy,
-			not converting a non-array to an array
-
-02-23-19:
-	extentlist_graph,extentlist_graph_deproject,interior_edge,extentlist_graph_corrected,plot_list_adjust
-		rewritten to start at 0 degrees
-	
-	changes had to be propogated throughout other programs, including:
-		adc
-		plotting_functions
-	
-	computation of 'm2ext_data' is removed
-"""
-
-
 import numpy as np; from numpy import searchsorted
 from scipy.stats import gmean
+from numba import njit
+
+from matplotlib import pyplot as plt
+from matplotlib.path import Path as mPath
+
+from common import print_update
+from common.decorators import add_doc
+from common.arrays.roll_wrap_funcs import rolling_mean_wrap
+
 from prop.galaxy_file import *
 from prop.asy_prop import *
 from prop.asy_prop_plot import *
+from prop.asy_defaults import *
+
 from asy_io.asy_paths import *
+
 from comp.polar_functions import polar_reduction
+from comp.array_functions import in_sorted, get_region_inds, complex_reindex_2d
 from comp.computation_functions import (ellipse, c_to_p, reindex, p_to_c,
 	deproject_graph, quadrature_sub, quadrature_sum,
 	rolling_gmean_wrap, rolling_sum_wrap, sort_arrays_by_array,# rolling_mean_wrap,
 	round_to_nearest, znan)#
-from common.arrays.roll_wrap_funcs import rolling_mean_wrap
-from comp.array_functions import in_sorted, get_region_inds, complex_reindex_2d
-from plot.plotting_functions import hline, vline, ax_0N, test_fig_save, full_legend, create_hidden_axis#, fig_size_save
-from matplotlib import pyplot as plt
-from matplotlib.path import Path as mPath
-from prop.asy_defaults import *
 
+from plot.plotting_functions import hline, vline, ax_0N, test_fig_save, full_legend, create_hidden_axis#, fig_size_save
 
 def max_ratio_locate(f_set,m,type,pr=False):
 	f_set = np.atleast_1d(f_set)
@@ -83,15 +47,15 @@ def interior_edge_by_pairwise_minima(extentlist_graph,unused):
 
 def interior_edge_by_shortside(extentlist_graph,EA):
 	interior_edge=np.copy(extentlist_graph)
-	loc=np.where(np.isclose(interior_edge[:,0]%360,EA%360))[0][0]
+	loc=np.where(np.isclose(interior_edge[:,0] % 360, EA % 360))[0][0]
 	(interior_edge[:,1])[(loc+al+birange_ahl)%a2l]=(interior_edge[:,1])[(loc+birange_ahl)%a2l]
 	return interior_edge
 
-#ie_function=interior_edge_by_shortside
-ie_function=interior_edge_by_pairwise_minima
+#ie_function, WRONGSIDE_M1 = interior_edge_by_shortside, True
+ie_function, WRONGSIDE_M1 = interior_edge_by_pairwise_minima, False
 
-if ie_function is interior_edge_by_pairwise_minima: WRONGSIDE_M1=False
-else: WRONGSIDE_M1=True
+# if ie_function is interior_edge_by_pairwise_minima:=
+# else:=
 
 def in2d_lexsort(xc,yc,total_y,total_x_indices,x0,xlast):
 	"""
@@ -357,25 +321,71 @@ def galaxy_outer_configure(Ginstance):
 # 		except IndexError: quartiles_per_t[i]=nan
 # 	return quartiles_per_t
 
-def compute_region_f_per_t(theta_int,flux):
+# assign_f_to_
+
+@njit
+def compute_region_f_per_t(theta_int, flux):#_numba
 	"""
+	Make a histogram of/digitize a region of flux, one bin for each
+	angle in the range of `a2l`. Each value is the sum of all flux in
+	that bin.
 	
+	Numba-rewritten version of the previous version.
+	Good speedup -- 30-50 times for largest galaxies,
+	up to hundreds of times for smaller galaxies.
+	Tested against prior version for consistency.
+	"""
+	f_per_t=np.array([0.]*a2l)
+	# f_per_t = flux per theta: will hold summed flux values along each theta
 	
-	theta_int, flux have to correspond,
+	for i in range(len(theta_int)):
+		f_per_t[theta_int[i]%a2l] += flux[i]
+	
+	return f_per_t
+
+"""def compute_region_f_per_t_prior(theta_int,flux):#
+	'''theta_int, flux have to correspond,
 		but are not required to be sorted in any particular way
 	
-	Rewriting this in numba would be *much* more efficient
-	"""
+	Rewriting this in numba would be *much* more efficient'''
+	
 	theta_int_vals=np.unique(theta_int)
 	f_per_t=np.zeros(a2l,dtype=float)
 	f_per_t[theta_int_vals]=tuple(np.sum(flux[np.where(theta_int==i)[0]]) for i in theta_int_vals)
+	
+# 	print_update(f'verifying compute_region_f_per_t for flux of size {len(flux)}')
+# 	try:
+# 		new = compute_region_f_per_t_numba(theta_int,flux)
+# 		assert np.allclose(f_per_t, new)
+# 	except AssertionError:
+# 		plt.plot(f_per_t)
+# 		plt.plot(new)
+# 		plt.show()
+# 		raise
+	
 	return f_per_t
-
+REGION_F_PER_T_TIMES = []
+def compute_region_f_per_t(t,f):
+	from time import process_time
+	trials = 10
+	compute_region_f_per_t_numba(t,f)
+	times = np.array([0,0],dtype=float)
+	for i in range(trials):
+		t0 = process_time()
+		compute_region_f_per_t_numba(t,f)
+		times[0]+=process_time()-t0
+	for i in range(trials):
+		t0 = process_time()
+		compute_region_f_per_t_prior(t,f)
+		times[1]+=process_time()-t0
+	print('compute_region_f_per_t time (numba, prior)',times/trials, times[1]/times[0])
+	REGION_F_PER_T_TIMES.append((len(t),times[1]/times[0]))
+	return compute_region_f_per_t_numba(t,f)
+"""
+@add_doc(compute_region_f_per_t)
 def digitize_outer_flux(Ginstance,return_data=False,test=False,rweight=False):
 	"""
-	idea for having distance-weight flux ratios (outer half, outer quadrant, global head-tail):
-	simply multiply flux value of every pixel by the distance of the pixel
-	and compute all quantities the same
+	Bin & sum outer flux over all available angular bins, resulting in nc_f_per_t.
 	"""
 	filename = Ginstance.filename
 	outer_pixel_cond = Ginstance.outer_pixel_cond
