@@ -6,6 +6,7 @@ Simplified by the existence of Python's `functools.partialmethod` in Python 3.4+
 
 from functools import partialmethod
 
+from common import consume
 from common.arrays.roll_wrap_funcs import rolling_gmean_wrap
 # from comp.computation_functions import *
 from comp.array_functions import get_region_inds, reindex, minmax
@@ -23,7 +24,13 @@ from prop.asy_defaults import *
 
 class RatioProcessPlotter:
 	func_template = 'm{m}_{qtype}_process_{ptype}_frame'
-	
+	label_map = {'extent':'extent', 'flux':'outer head-tail flux',
+				 'ht':'global head-tail flux'}
+	ratio_map = {('extent',1):'ER', ('extent',2):'m2ER', ('ht',1):'HTR',
+				 ('flux',1):'FR', ('flux',2):'m2FR'}
+	text_size = 24
+	xlabel = f'active angle on sky ({deg})'
+	labelsize = 30
 	def __init__(self, Ginstance):
 		self.g = Ginstance
 	
@@ -60,6 +67,9 @@ class RatioProcessPlotter:
 		"""Underlying method that provides for the logic in each derivative
 		method reference in `overview_plots`."""
 		polar_axes, ax = self.create_m_overview_axes()
+		consume(p.text(.025,.975, i+1, ha='right', va='top',
+				transform=p.transAxes, size=self.text_size)
+				for i,p in enumerate(polar_axes))
 		# indices corresponding to angles where we will focus on
 		locs = np.linspace(ahl/m, a2l/m, 4, dtype=int)
 		colors = 'rygb'
@@ -74,14 +84,22 @@ class RatioProcessPlotter:
 		# of the ratio of interest plotted as `rline_data`
 		rline_data = self.__get_process_frame_func(m, qtype, 'ratio')(a2l, ax)
 		# for each angle, mark the ratio curve with a color-coded symbol
-		for l,c in zip(locs % a2l,colors):
-			ax.scatter(*rline_data[:, l],
-						c=c, marker=(3,0,l*index_to_deg), s=200
-			)
+		ratio = .5 * getattr(self.g, self.ratio_map[(qtype,m)])
+		scale = np.diff(ax.axis()[-2:])
+		for i,(l,c) in enumerate(zip(locs % a2l,colors)):
+			x,y = rline_data[:, l]
+			yv = rline_data[1, np.arange(l-2,l+3)%a2l].mean() > y
+			ax.scatter(x,y, c=c, marker=(3,0,l*index_to_deg), s=200)
+			va,yadj = (('top',-1) if yv else ('bottom',1))
+			ax.text(x, y+.025*scale*yadj, (i+1)%4 + 1, ha='center', va=va,
+					size=self.text_size)
 		ax.set_xlim((-5,365) if m==1 else (0,360))
+		ax.tick_params(axis='both',which='major',labelsize=16)
+		axlabels(self.xlabel, f'{self.label_map[qtype]} ratio', size=self.labelsize)
 		paper_tex_save(
 			f'{self.g.filename} m{m} {qtype} overview', 'methods',
-			link_folder=(f'm{m} process', self.g.filename))
+			link_folder=(f'm{m} process', self.g.filename),
+			dump = 2)
 	
 	def m1_extent_process_polar_frame(self, pos, polar_ax, arrow_kw={}, boundary = True):
 		if boundary: self.g.polar_boundary_plot(polar_ax)[0].set_zorder(-1)
@@ -94,6 +112,7 @@ class RatioProcessPlotter:
 			c=arrow_kw.get('color','r'), ls=':', lw=2,zorder=-1)
 		self.polar_center_scatter(polar_ax)
 		polar_ax.set_xticks([])
+		polar_ax.set_yticklabels([])
 		
 	def _m1_flux_process_polar_frame(self, pos, polar_ax, outer, arrow_kw = {}):
 		"""
@@ -183,6 +202,7 @@ class RatioProcessPlotter:
 		
 		polar_ax.annotate("", xytext=[theta, 0], xy=[theta, radius],
 						  zorder=-1, arrowprops=arrowprops)
+		polar_ax.set_yticklabels([])
 		
 		color = arrowprops['color']
 		polar_ax.plot([theta+tau/2]*2, [0, ext_array[(pos+al)%a2l, 1]],

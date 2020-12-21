@@ -14,6 +14,7 @@ at the time the function is called if not.
 """
 
 import os
+from shutil import copyfile
 #from itertools import cycle
 from copy import deepcopy
 #import inspect
@@ -48,35 +49,43 @@ from prop.asy_prop import *
 #import matplotlib.animation as manimation
 #FFMpegWriter = manimation.writers['ffmpeg']
 
-def makefig(figure_path,record=False,fig=None,close=False,clf=False,fmt='pdf',additional_path=None,**kw):
-	"""Automates actions related to creating a figure:
-	generating a matplotlib Figure, making required directories,
-	and closing the plot/figure."""
-	fmt=fmt.replace('.','')
-	makepath('/'.join(figure_path.split('/')[:-1]))
-	#print('figure being saved')
-	if additional_path is not None:
-		if isinstance(additional_path,str):
-			NotImplemented
-		else:
-			NotImplemented
-			#for path in additional_path:
-			#	...
-	if fig is None: fig=plt.gcf()
-	if figure_path[-len(fmt):]!=fmt: figure_path=figure_path+'.'+fmt
-	fig.savefig(figure_path,**kw)
-	if close: plt.close(fig)
-	elif clf: fig.clf()
-	if record: print('function `makefig`: handling of `record` argument is presently not configured')
-	return figure_path
-
-def fig_size_save(path,s=(13,8),resize=True,record=False,fig=None,**kw):
-	"""Resize a figure before saving it via 'makefig'."""
-	if fig is None: fig=plt.gcf()
-	if resize:
-		if not isinstance(resize,bool): fig.set_size_inches(np.array(fig.get_size_inches())*resize)
-		else: fig.set_size_inches(s)
-	return makefig(path,record=record,fig=fig,**kw)
+# def savefigure(figure_path,record=False,fig=None,close=False,clf=False,fmt='pdf',additional_path=None,**kw):
+# 	"""Automates actions related to creating a figure:
+# 	generating a matplotlib Figure, making required directories,
+# 	and closing the plot/figure."""
+# 	fmt=fmt.replace('.','')
+# 	makepath('/'.join(figure_path.split('/')[:-1]))
+# 	#print('figure being saved')
+# 	if additional_path is not None:
+# 		if isinstance(additional_path,str):
+# 			NotImplemented
+# 		else:
+# 			NotImplemented
+# 			#for path in additional_path:
+# 			#	...
+# 	if fig is None:
+# 		fig=plt.gcf()
+# 	if figure_path[-len(fmt):]!=fmt:
+# 		figure_path=figure_path+'.'+fmt
+# 	fig.savefig(figure_path,**kw)
+# 	if close:
+# 		plt.close(fig)
+# 	elif clf:
+# 		fig.clf()
+# 	if record:
+# 		print('function `savefigure`: handling of `record` argument is presently not configured')
+# 	return figure_path
+# 
+# def fig_size_save(path,s=(13,8),resize=True,record=False,fig=None,**kw):
+# 	"""Resize a figure before saving it via 'savefigure'."""
+# 	if fig is None:
+# 		fig=plt.gcf()
+# 	if resize:
+# 		if not isinstance(resize,bool):
+# 			fig.set_size_inches(np.array(fig.get_size_inches())*resize)
+# 		else:
+# 			fig.set_size_inches(s)
+# 	return savefigure(path,record=record,fig=fig,**kw)
 
 def test_fig_save(name,*folders,**k):
 	"""Save a figure in the test figure location via 'fig_size_save'."""
@@ -110,7 +119,7 @@ def active_fig_save(name,*folders,**k):
 	kw=merge_dicts({'bbox_inches':'tight','clf':True},k)
 	return fig_size_save(path,**kw)
 
-def paper_tex_save(name, paper, *, link_folder=None, touch=0, **k):
+def paper_tex_save(name, paper, *, link_folder=None, touch=0, dump=None, **k):
 	"""Save a figure in a paper figure location via 'fig_size_save'.
 	Simultaneously create or replace a symlink to the resultant image file
 	in a directory reserved for such symlinks, and update the mtime
@@ -122,7 +131,16 @@ def paper_tex_save(name, paper, *, link_folder=None, touch=0, **k):
 	paper_tex_path, paper_path = (PAPER_TEX_FIGURE_SAVE, PAPER_PATH) \
 		if isinstance(paper,int) or paper.isdigit() else \
 		(PAPER_TEX_FIGURE_SAVE_UNNUMBERED, PAPER_PATH_UNNUMBERED)
+	
 	path=fig_size_save(paper_tex_path.format(paper)+name.split('/')[-1],**kw)
+	if dump is not None:
+		if isinstance(dump,int) or dump.isdigit():
+			dump_loc = PAPER_DUMP_FIGURE_SAVE
+		else:
+			dump_loc = PAPER_DUMP_FIGURE_SAVE_UNNUMBERED
+		
+		copyfile(path, f'{dump_loc.format(dump)}{path.split("/")[-1]}')
+	
 	if link_folder is not None:
 		if not isinstance(link_folder,(str,os.PathLike)):
 			link_folder=os.path.join(*map(str,link_folder))
@@ -151,6 +169,7 @@ def paper_tex_save(name, paper, *, link_folder=None, touch=0, **k):
 		for directory in islice(folder.parents,touch):
 			#print(f'paper_tex_save: directory will be touched: {directory}')
 			touch_directory(directory)
+	
 	
 	return path
 
@@ -404,11 +423,18 @@ def polar_on_cart_plot(t,r,xc=None,yc=None,ax=None,arrow=False,line=True,**kw):
 	if xc is None:
 		xc=np.average(ax.get_xlim())
 		yc=np.average(ax.get_ylim())
-	x,y=p_to_c(np.atleast_1d(t),np.atleast_1d(r),xc,yc)
+	t,r = np.atleast_1d(t), np.atleast_1d(r)
+	x,y = p_to_c(t, r, xc, yc)
 	#print('t,r:',t,r)
 	#print('x,y:',x,y)
-	if arrow: arrow_plot(x[-2],y[-2],x[-1],y[-1],ax=ax,**kw)
-	if line: ax.plot(x,y,**kw)#[0]
+	if arrow:
+		arrow_plot(x[-2], y[-2], x[-1], y[-1], ax=ax, **kw)
+		# shrink radius because the link will extend beyond the
+		# 	arrow otherwise.
+		# Another option is to shift the position of the arrow;
+		# 	this may be more correct.
+		x,y = p_to_c(t, r*.9, xc, yc)
+	if line: ax.plot(x, y, **kw)#[0]
 
 @makeax
 def arrow_plot(x0,y0,x1,y1,ax=None,**kw):
@@ -491,7 +517,18 @@ def plot_asy_contours(ax_image,ax_colorbar,zdata,contour_plot,xpix_i,ypix_i,edge
 	ax_image.set_xlim(xpix_i-edge_radius/pix_scale_arcsec,xpix_i+edge_radius/pix_scale_arcsec)
 	ax_image.set_ylim(ypix_i-edge_radius/pix_scale_arcsec,ypix_i+edge_radius/pix_scale_arcsec)
 
-def stabilize_angles(ar,mod,pr=False):
+def stabilize_angles(ar, mod, pr=False):
+	"""Modulate angles about `mod` such that consecutive angles are
+	moduldated so as to be separated by the minimal polar distance
+	between them.
+	
+	E.g., say the angles are (10, 350, 355). One could imagine traveling from
+	10 --> 355 --> 350, moving only in the forwards direction; however, a
+	shorter (shortest) overall path is formed by traveling 10 --> -5 --> -10,
+	moving in both +/- directions, which is equivalent (mod 360) to the first
+	path. Thus the result returned is [10. -5. -10.].
+	"""
+	ar = np.atleast_1d(ar)
 	if ar.ndim>2:
 		raise ValueError('`stabilize_angles` is not configured for arrays with ndim>2')
 	
@@ -500,7 +537,8 @@ def stabilize_angles(ar,mod,pr=False):
 		assumes that the different angle sets are stacked as separate columns,
 		as they would be passed to plt.plot
 		"""
-		return np.column_stack([stabilize_angles(ar[:,i],mod,pr=pr) for i in range(ar.shape[1])])
+		return np.column_stack([stabilize_angles(ar[:,i], mod, pr=pr)
+								for i in range(ar.shape[1])])
 		
 	else:
 		original=ar
@@ -522,10 +560,10 @@ def stabilize_angles(ar,mod,pr=False):
 		return stabilized
 
 @makeax
-def stabilize_plot(ar,mod=360,center=0,pr=False,ax=None,
-	X_array=None,set_ylim=True,scatter=False,test=False,return_plots=False,
+def stabilize_plot(ar, mod=360, center=0, pr=False, ax=None,
+	X_array=None, set_ylim=True, scatter=False, test=False, return_plots=False,
 	center_on_0=False, **kwargs):
-	"""see plotting_functions_former_01_21_19.py for former algorithm"""
+	"""Plot angles processed by `stabilize_angles`"""
 	if X_array is None: X_array=np.arange(len(ar))
 	stabilized=stabilize_angles(ar,mod,pr=pr)
 
@@ -542,19 +580,29 @@ def stabilize_plot(ar,mod=360,center=0,pr=False,ax=None,
 	for count,v in enumerate(np.arange(add_to_max,add_to_min+1)):
 		if count==1: kwargs['label']=None
 		if scatter:
-			try: plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
-			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
+			plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
+# 			try: 
+# 			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
 		else:
-			try: plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
-			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
+			plots.extend(ax.plot(X_array,stabilized+v*mod,**kwargs))
+# 			try: 
+# 			except AttributeError as e: print('stabilize_plot error:',repr(e))#plots.append(ax.scatter(X_array,stabilized+v*mod,**kwargs))
 		
 		if stabilized.ndim==2:
-			for l,lo in zip(plots[-stabilized.shape[1]:],plots[:stabilized.shape[1]]):
-				l.set_color(lo.get_color())
+			if scatter:
+				for l,lo in zip(plots[-stabilized.shape[1]:],plots[:stabilized.shape[1]]):
+					l.set_color(lo.get_color())
+			else:
+				for l,lo in zip(plots[-stabilized.shape[1]:],plots[:stabilized.shape[1]]):
+					l.set_facecolor(lo.get_facecolor())
 	if stabilized.ndim==1:
-		for l in plots[1:]: l.set_color(plots[0].get_color())
+		if scatter:
+			for l in plots[1:]: l.set_facecolor(plots[0].get_facecolor())
+		else:
+			for l in plots[1:]: l.set_color(plots[0].get_color())
 
 	if set_ylim:
+		print('setting ylim:',(bottom,top))
 		ax.set_ylim(bottom,top)
 	else:
 		plots = sorted(plots,key = lambda p: np.abs(p.get_data()[1]-center).mean())
@@ -568,7 +616,7 @@ def stabilize_plot(ar,mod=360,center=0,pr=False,ax=None,
 
 
 from mpl_wrap.plotting_functions import __all__
-__all__ = ('default_sig_angle_kwargs', 'polar_on_cart_plot', 
+__all__ = ('default_sig_angle_kwargs', 'polar_on_cart_plot',
 'create_hidden_axis', 'paperplot', 'sig_region_plot', 'eff_rad_calc', 'fig_size_save',
 'paper_fig_save', 'asymmetric_low', 'asymmetric_high', 'saveplot',
 'paperplot1', 'dual_fill', 'test_fig_save', 'format_ratio_axis', 'get_edge_radius',
@@ -577,13 +625,13 @@ __all__ = ('default_sig_angle_kwargs', 'polar_on_cart_plot',
 'plot_shortside', 'default_sig_region_kwargs', 'high_i_cutoff_list', 'misc_fig_save',
 'default_sig_m1_m2_kwargs', 'create_dual_axis', 'polar_fill', 'iter_axis_ticklabels',
 'sig_asy_plot', 'radial_distribution', 'default_sig_asy_kwargs',
-'iter_axis_ticks', 'makefig', 'paper_tex_save', 'topical_fig_save','stabilize_angles','stabilize_plot'
+'iter_axis_ticks', 'savefigure', 'paper_tex_save', 'topical_fig_save','stabilize_angles','stabilize_plot'
 , *__all__)
 # 'ax_select', 
 
 
 
-# ('makeax','axlabels','ax_0N','neatbins','keepax','makefig','paper_tex_save',
+# ('makeax','axlabels','ax_0N','neatbins','keepax','savefigure','paper_tex_save',
 # 'test_fig_save','paper_fig_save','topical_fig_save','active_fig_save','fig_size_save',
 # 'misc_fig_save','saveplot','paperplot','paperplot1','paperplot2','axis_add',
 # 'create_overlapping_axis','create_hidden_axis','create_dual_axis','vline','hline',
