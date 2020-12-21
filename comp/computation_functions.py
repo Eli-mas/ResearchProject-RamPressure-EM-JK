@@ -1,3 +1,5 @@
+import operator
+
 import numpy as np
 
 from prop.asy_prop import *
@@ -10,7 +12,11 @@ import matplotlib.pyplot as plt
 
 from numpy import ndarray
 
-def reflect_reciprocate(ar, mod=al, **kw): return ar/reindex(ar, mod, **kw)
+from common.decorators import add_doc
+
+def reflect_reciprocate(ar, mod=al, **kw):
+	"""Divide an array by its reindexing over a specified window."""
+	return ar/reindex(ar, mod, **kw)
 
 def cdf_(sorted_data, return_sum=False):
 	"""
@@ -39,11 +45,20 @@ def make_cdf(d):
 	return np.array([np.average(ar[(i+indices)%alen], axis=axis) for i in range(alen)])"""
 
 
-def quadrature_sum(a, b): return np.sqrt((a**2)+(b**2))
-def quadrature_sub(a, b): return np.sqrt((a**2)-(b**2))
-def qsum_n(*args): return np.sqrt(np.sum(np.array(args)**2))
+def quadrature_sum(a, b):
+	"""Quadrature sum for two arguments."""
+	return np.sqrt((a**2)+(b**2))
+def quadrature_sub(a, b):
+	"""Quadrature difference for any number of arguments."""
+	return np.sqrt((a**2)-(b**2))
+def qsum_n(*args):
+	"""Quadrature sum for any number of arguments."""
+	return np.sqrt(np.sum(np.array(args)**2))
 
 def sort_arrays_by_array(sorter, arrays_to_sort, reverse=False):
+	"""Given a `sorter` array and an iterable of other arrays.
+	sort the other arrays by the sorting order used to sort the
+	sorter array. If `reverse`, sort in descending order."""
 	sort_inds=np.argsort(sorter)
 	if reverse: sort_inds=sort_inds[::-1]
 	return [a[sort_inds] for a in arrays_to_sort]
@@ -131,6 +146,11 @@ def deproject_graph(theta, r_sky, inclination, PA):
 #	return [r_gal, r_sky, 360*eta/tau, conv_fact]
 
 def coorsgen(ar2d, null=0, t=True, as_columns=True):
+	"""Given a matrix (array) representing a 2-d map of a galaxy,
+	generate the coordinates of that galaxy as the cells
+	where the matrix has non-null values. By default the `null`
+	value is 0. `t` means 'take the transpose'. Results are returned
+	as an (Nx2) array if `as_columns` is True, else as a (2xN) array."""
 	ar2d = np.atleast_1d(ar2d)
 	if ar2d.ndim<2 or ar2d.ndim>2:
 		raise ValueError("'coorsgen': `ar2d` parameter should have 2 dimensions, has {ar2d.ndim}")
@@ -163,6 +183,8 @@ def setnan(data, where, inplace=False):
 	if not inplace: return data
 
 def zfloor(data, threshold=0, rep=None):
+	"""Return modified version of array with values<threshold set to threshold.
+	By default the threshold is 0, hence the name 'zfloor'."""
 	z=np.copy(data)
 	if rep is None: rep=threshold
 	z[z<threshold]=rep
@@ -222,27 +244,45 @@ def polar_stabilize(theta, reference_point=0):
 	return result
 
 def sigfig(x, d=1):
-	try: return round(x, d-int(np.log10(np.abs(x))))
-	except (ValueError, OverflowError): return x
+	"""round number to specified precision."""
+	try:
+		return round(x, d-int(np.log10(np.abs(x))))
+	except (ValueError, OverflowError):
+		return x
 	except TypeError:
-		if isinstance(x, complex): return (sigfig(x.real, d)+1j*sigfig(x.imag, d))
+		if isinstance(x, complex):
+			return (sigfig(x.real, d)+1j*sigfig(x.imag, d))
+		else: raise
 
 def sig_asy_mask(ER, FR):
-	"""
-	return boolean array which is True when ER and FR are above respective thresholds
+	"""Tell whether asymmetry is significant on the basis of `ER`, `FR` values.
+	
+	I.e., return (ER >= sig_ext_cutoff) & (FR >= sig_flux_cutoff).
 	"""
 	return (ER >= sig_ext_cutoff) & (FR >= sig_flux_cutoff)
 
 def sig_asy_m2_mask(ER, FR, m2ER, m2FR):
+	"""Return whether the m=1 asymmetry given by `ER`,`FR` is significant
+	by comparing with the values given by `m2ER`, `m2FR`."""
 	return (((ER-1)/(m2ER-1)) > sig_m1_m2_ext_cutoff) & ((FR-m2FR) > sig_m1_m2_flux_cutoff)
 
+@add_doc(sig_asy_mask, sig_asy_m2_mask)
 def sig_asy_full_mask(ER, FR, m2ER, m2FR):
+	"""Return whether given asymmetry is significant on the basis of
+	m=1 values and on comparison of these with m=2 values."""
 	return sig_asy_mask(ER, FR) & sig_asy_m2_mask(ER, FR, m2ER, m2FR)
 
 def sig_angle_mask(EA, FA):
+	"""Given asymmetry angles `EA`, `FA` *measured relative to a known,
+	true wind angle, tell whether the angles fall sufficiently close
+	to the wind angle as determined by `sig_angle_cutoff`."""
 	return (np.abs(EA) <= sig_angle_cutoff) & (np.abs(FA) <= sig_angle_cutoff)
 
 def regress_linear(x,y, predict=None, round=-1):
+	"""Linear regression via sklearn.LinearRegression,
+	If `predict` is None, return (coef, intercept, score(x,y)) of the model.
+	Otherwise, specify `predict` as input values for which to predict outputs,
+	and return the same data but with the predictions appended to the tuple."""
 	x = ensure_columnwise(x)
 	reg = LinearRegression().fit(x,y)
 	
@@ -254,9 +294,37 @@ def regress_linear(x,y, predict=None, round=-1):
 	if round >= 0: return tuple(np.round(v,round) for v in results)
 	return results
 
+def intersect_lines(m1b1, m2b2, eq=operator.eq):
+	"""Given slope,intercept pairs for two lines,
+	return the (x,y) point of their intersection.
+	
+	If both lines have the same slope, return a tuple of nan values.
+	
+	Determination of whether the lines have equal slope is by default
+	performed by the == operator. If you want to use another *binary*
+	operator, such as np.isclose, pass it to the `eq` parameter."""
+	(m1,b1) = m1b1
+	(m2,b2) = m2b2
+	if eq(m1, m2): return (nan, nan)
+	
+	x = (b2-b1)/(m1-m2)	# x coordinate of intersection
+	return x, m1*x+b1	# (x,y) coors. of intersection
+
+def intersect_vline(m, b, vx):
+	"""Given m = slope, b=y-intercept, vx = x-coordinate of vertical line,
+	return the y-coordinate at which line with (m, b)
+	intersects the vertical line."""
+	return m*vx+b
+
+def intersect_hline(m, b, hy):
+	"""Given m = slope, b=y-intercept, hy = y-coordinate of horizontal line,
+	return the x-coordiante at which line with (m, b)
+	intersects the horizontal line."""
+	return (hy-b)/m
 
 __all__ = ('reflect_reciprocate','cdf_','make_cdf','quadrature_sum',
 'quadrature_sub','qsum_n','sort_arrays_by_array','c_to_p','p_to_c','ellipse',
 'deproject_graph','coorsgen','znan','setnan','zfloor','find_containing_angle',
 'round_to_nearest','polar_invert','polar_stabilize','sigfig','sig_asy_mask',
-'sig_asy_m2_mask','sig_asy_full_mask','sig_angle_mask','regress_linear')
+'sig_asy_m2_mask','sig_asy_full_mask','sig_angle_mask','regress_linear',
+'intersect_lines','intersect_vline','intersect_hline')

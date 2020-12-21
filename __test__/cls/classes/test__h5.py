@@ -116,16 +116,21 @@ def verify_all_attrs_match_galaxies(*gals):
 
 def verify_Galaxy_getters_script():
 	import re
-	pattern = re.compile('^def (.+?)[(].+[)][:]((?!\sdef\s).|\n)+?return (.+?)$', re.MULTILINE)
+	pattern = re.compile(
+		'^def (.+?)[(].+[)][:]((?!\sdef\s).|\n)+?return (.+?)$',
+		re.MULTILINE
+	)
 	
-	with open(Galaxy_getters.__file__, 'r') as f: script = f.read()
+	with open(Galaxy_getters.__file__, 'r') as f:
+		script = f.read()
 	
 	matches = (m.groups() for m in pattern.finditer(script))
 	matches = [(m[0],m[2]) for m in matches]
 	print([m[0] for m in matches])
-	for name,returned_name in matches:
+	for name, returned_name in matches:
 		if returned_name != f'self.{name}':
-			print(f'function defines attribute {name} but returns {returned_name}')
+			print(f'function defines attribute {name}'
+				  f' but returns {returned_name}')
 
 
 if __name__=='__main__':

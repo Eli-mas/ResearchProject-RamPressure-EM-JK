@@ -26,6 +26,9 @@ from comp.computation_functions import (ellipse, c_to_p, reindex, p_to_c,
 from plot.plotting_functions import hline, vline, ax_0N, test_fig_save, full_legend, create_hidden_axis#, fig_size_save
 
 def max_ratio_locate(f_set,m,type,pr=False):
+	"""Return max-ratio and maximizing angles given a ratio set with
+	angles included. `f_set` assumed to be 2-dimensional with angles,
+	ratios in columns 0,1 respectively."""
 	f_set = np.atleast_1d(f_set)
 	r_max=np.max(f_set[:,1])
 	max_angles=f_set[np.isclose(f_set[:,1],r_max),0]
@@ -33,11 +36,16 @@ def max_ratio_locate(f_set,m,type,pr=False):
 	return r_max, max_angles
 
 def ratio_angle_index_determine(angle_list,m,mod=a2l,rt=int):
+	"""Given a list of maximizing angles, return the
+	corresponding asymmetry angle (median of angles).
+	Handles m=1, m=2 cases."""
 	if m==2: angle_list=angle_list[:len(angle_list)//2]
 	if len(angle_list)==1: return angle_list[0]
 	return rt(polar_reduction(np.median,angle_list,mod=mod))
 
 def interior_edge_by_pairwise_minima(extentlist_graph,unused):
+	"""Compute the inner boundary as the shortest of
+	diametrically opposite extents along every angle."""
 	extentlist_graph=np.copy(extentlist_graph)
 	extents=extentlist_graph[:,1]
 	extents_opposite=np.append(extents[al:],extents[:al])
@@ -46,11 +54,17 @@ def interior_edge_by_pairwise_minima(extentlist_graph,unused):
 	return interior_edge
 
 def interior_edge_by_shortside(extentlist_graph,EA):
+	"""Compute inner boundary as the union of the shortside
+	with its reflection about the origin."""
 	interior_edge=np.copy(extentlist_graph)
 	loc=np.where(np.isclose(interior_edge[:,0] % 360, EA % 360))[0][0]
 	(interior_edge[:,1])[(loc+al+birange_ahl)%a2l]=(interior_edge[:,1])[(loc+birange_ahl)%a2l]
 	return interior_edge
 
+"""the function used to compute the m=1 inner boundary.
+wrongside regions do not occur with 'interior_edge_by_pairwise_minima',
+but they can occur with 'interior_edge_by_shortside',
+hence the values of WRONGSIDE_M1"""
 #ie_function, WRONGSIDE_M1 = interior_edge_by_shortside, True
 ie_function, WRONGSIDE_M1 = interior_edge_by_pairwise_minima, False
 
@@ -157,6 +171,7 @@ def score_calc(extentratio, aspan, weight=False):
 	
 	return ar
 
+# function that computes `extentlist`
 extentlist_func=extentlist_optimized
 
 def get_centroid_t_r(xdata, ydata, xpix, ypix, weights=None):
@@ -343,45 +358,7 @@ def compute_region_f_per_t(theta_int, flux):#_numba
 	
 	return f_per_t
 
-"""def compute_region_f_per_t_prior(theta_int,flux):#
-	'''theta_int, flux have to correspond,
-		but are not required to be sorted in any particular way
-	
-	Rewriting this in numba would be *much* more efficient'''
-	
-	theta_int_vals=np.unique(theta_int)
-	f_per_t=np.zeros(a2l,dtype=float)
-	f_per_t[theta_int_vals]=tuple(np.sum(flux[np.where(theta_int==i)[0]]) for i in theta_int_vals)
-	
-# 	print_update(f'verifying compute_region_f_per_t for flux of size {len(flux)}')
-# 	try:
-# 		new = compute_region_f_per_t_numba(theta_int,flux)
-# 		assert np.allclose(f_per_t, new)
-# 	except AssertionError:
-# 		plt.plot(f_per_t)
-# 		plt.plot(new)
-# 		plt.show()
-# 		raise
-	
-	return f_per_t
-REGION_F_PER_T_TIMES = []
-def compute_region_f_per_t(t,f):
-	from time import process_time
-	trials = 10
-	compute_region_f_per_t_numba(t,f)
-	times = np.array([0,0],dtype=float)
-	for i in range(trials):
-		t0 = process_time()
-		compute_region_f_per_t_numba(t,f)
-		times[0]+=process_time()-t0
-	for i in range(trials):
-		t0 = process_time()
-		compute_region_f_per_t_prior(t,f)
-		times[1]+=process_time()-t0
-	print('compute_region_f_per_t time (numba, prior)',times/trials, times[1]/times[0])
-	REGION_F_PER_T_TIMES.append((len(t),times[1]/times[0]))
-	return compute_region_f_per_t_numba(t,f)
-"""
+
 @add_doc(compute_region_f_per_t)
 def digitize_outer_flux(Ginstance,return_data=False,test=False,rweight=False):
 	"""
@@ -439,6 +416,15 @@ def digitize_outer_flux(Ginstance,return_data=False,test=False,rweight=False):
 	#if return_data: return nc_f_per_t
 
 def get_galaxy_inner_regions(Ginstance):
+	"""Compute flux, and (theta, radius) coordinates for all inner pixels.
+	
+	Specifically, generate these arrays:
+		center_f (flux)
+		center_t (theta)
+		center_r (radius)
+		center_t_int (theta rounded to integers)
+		c_f_per_t (flux digitized over integral theta bins)
+	"""
 	#print 'TEST: inside get_galaxy_inner_regions'
 	total_t_int_tsort,total_r_tsort, total_f_tsort, total_t_tsort, total_f_per_t=\
 	Ginstance.getattrs(
@@ -476,6 +462,11 @@ def correct_for_beam_smearing_new(r, d_beam_arcsec, mult=1, expand=False, plot=F
 	return quadrature_sub(r, mult * r_beam_arcsec)
 
 def get_beam_corrected_extentlist(Ginstance,plot=False):
+	"""
+	Correct for beam effects by applying
+	`correct_for_beam_smearing_new` to the `extentlist_graph`
+	attribute, establishing `extentlist_graph_corrected`.
+	"""
 	if Ginstance.is_real:
 		beam=ellipse(a=Ginstance.beam_d1,b=Ginstance.beam_d2,PA=Ginstance.beam_PA,inclination=0,d_beam_arcsec=None)
 		beam=reindex(beam,ahl,axis=1)
@@ -602,7 +593,7 @@ def get_m2_ext_quantities(Ginstance):#,newcheck=True
 	Ginstance.m2ext_avgs=m2ext_avgs
 
 def get_m2_inner_boundary(Ginstance):
-	"""Get the m=2 inne boundary, expressed in projected radii."""
+	"""Get the m=2 inner boundary, expressed in projected radii."""
 	if deny_m2_high_i and Ginstance.inclination>high_i_threshold:
 		Ginstance.m2interior_edge=nan
 		return
@@ -641,6 +632,11 @@ def get_m2_inner_boundary(Ginstance):
 # 	"""
 
 def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck=False
+	"""Compute the raw flux arrays used for computing m=2 quantities.
+	Includes `m2nc_f_per_t` (theta-digitized m=2 outer flux) and
+	'qofs' = the version of this smoothed by 90 degrees.
+	Returned in the order (qofs, m2nc_f_per_t).
+	"""
 	filename=Ginstance.filename
 	total_t_int_tsort,total_f_tsort,total_r_tsort=Ginstance.getattrs('total_t_int_tsort','total_f_tsort','total_r_tsort')
 	m2inner_pixel_cond,m2inedge_ar,m2inedge_ar_per_pixel=get_m2_inner_boundary(Ginstance)
@@ -901,6 +897,10 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 	return quadrant_outer_flux_set,m2nc_f_per_t
 
 def get_m2_flux_arrays(Ginstance,check_wrongside=True,test=False,mode=1,return_full=False):
+	"""
+	Compute flux data for m=2. Also compute the m=2 weights.
+	`mode` parameter determines how weights are computed (1-->extent, 0-->flux).
+	"""
 	totalflux=Ginstance.totalflux
 	qofs,m2nc_f_per_t=get_m2_noncenter_data(Ginstance,check_wrongside=check_wrongside,test=test)
 	
@@ -954,7 +954,16 @@ def get_m2_flux_arrays(Ginstance,check_wrongside=True,test=False,mode=1,return_f
 	
 	return m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted
 
+@add_doc(get_m2_flux_arrays)
 def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
+	"""
+	Compute m=2 quantities. `test` can be set to True to generate
+	plots that show the stages of the calculation, in which case
+	the `mode` argument comes into play (mode=0 --> flux-based
+	weights, mode=1 --> extent-based weights).
+	
+	Defers to `get_m2_flux_arrays`.
+	"""
 	if deny_m2_high_i and Ginstance.inclination>high_i_threshold:
 		Ginstance.m2score_ar=nan
 		Ginstance.m2ER=nan
@@ -966,9 +975,13 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 		return
 	"""
 	NOTES:
-		extentlist_graph and egda correspond to the actual graph in astronomical coordinates
+		extentlist_graph and egda correspond to the actual graph
+			in astronomical coordinates
+		
 		the angles are not measured from E; they are measured from N
-		thus the extents along the angles specified in these arrays correspond to the asymmetry plots
+		
+		thus the extents along the angles specified in these arrays
+			correspond to the asymmetry plots
 	"""
 	filename,PA,pix_scale_arcsec=Ginstance.getattrs('filename','PA','pix_scale_arcsec')
 	#if test or check_wrongside: print('<><> m2 check here <><>')

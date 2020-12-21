@@ -138,6 +138,9 @@ coorslinesdata=fpull(DATA_SOURCES_PATH+'gal_coor.file',rep=('h','m','s','d'),r='
 shapedata=fpull(DATA_SOURCES_PATH+'gal_shape_mod.file')
 OTHER_data=fpull(DATA_SOURCES_PATH+'OTHER/OTHER.file',s=1,e=2)
 
+cluster_shape_data = pd.read_csv(DATA_SOURCES_PATH+'gal_shape_mod.data',index_col=0)
+cluster_coor_data = pd.read_csv(DATA_SOURCES_PATH+'gal_coor.data',index_col=0)
+
 ATLAS3D_data=fpull(DATA_SOURCES_PATH+'ATLAS3D/ATLAS3D.file',s=1,e=24)
 
 def listify(input,convert): return [input] if isinstance(input,convert) else input
@@ -211,8 +214,10 @@ def fits_data(Ginstance):
 		for item in coorsdataline:
 			try: coorsfloat.append(float(item))
 			except ValueError: coorsfloat.append(item)
-		xcenter=(coorsfloat[1]+coorsfloat[2]/60+coorsfloat[3]/3600)*15
-		ycenter=(coorsfloat[4]+coorsfloat[5]/60+coorsfloat[6]/3600)
+		xcenter=(abs(coorsfloat[1])+coorsfloat[2]/60+coorsfloat[3]/3600)*15
+		if coorsfloat[1]<0: xcenter *= -1
+		ycenter=(abs(coorsfloat[4])+coorsfloat[5]/60+coorsfloat[6]/3600)
+		if coorsfloat[4]<0: ycenter *= -1
 		
 		line=np.array([nan]+shapedata[key][1:],dtype=float)
 		
@@ -243,7 +248,7 @@ def fits_data(Ginstance):
 		beam_PA=line[11]
 		try: xpix, ypix, zpix = wcs.wcs_world2pix(xcenter,ycenter,0,0)
 		except TypeError: xpix, ypix = wcs.wcs_world2pix(xcenter,ycenter,0)
-		if filename=='1427a': xpix,ypix=58,64
+# 		if filename=='1427a': xpix,ypix=58,64
 	
 	elif filename in OTHER:
 		line=OTHER_data[filename.lower()]
@@ -460,8 +465,9 @@ lprint=partial(print,sep='\n')
 __all__= ('load_array','save_array','save_fmt','merge_dicts','d_beam_func',#'select',
 'print_update','makepath','makepath_from_file','touch_directory','savetxt',
 'str_replace','fpull','coorslinesdata','shapedata','OTHER_data','ATLAS3D_data',
-'listify','listify2','get_shortside_data','sanitize_path','lprint',
-'get_raw_data_from_fits','fits_data','gal_check','errtrace','return_ref_data')
+'listify','listify2','get_shortside_data','sanitize_path','lprint','cluster_shape_data',
+'get_raw_data_from_fits','fits_data','gal_check','errtrace','return_ref_data',
+'cluster_coor_data')
 
 if __name__=='__main__':
 	res=gal_check()

@@ -15,6 +15,7 @@ _Galaxy never has to be accessed directly."""
 
 from multiprocessing import Pool, cpu_count
 import numpy as np
+from matplotlib import pyplot as plt
 
 from common import MultiIterator, getattrs, print_update, consume
 from common.decorators import add_doc
@@ -40,9 +41,10 @@ from .galaxy_attribute_information import (
 )
 from . import Galaxy_getters
 
-from ..h5 import Galaxy_H5_Interface
+from ..h5 import Galaxy_H5_Interface, H5_INTERFACE
 
-
+from plot.plot_classes import PaperFigure
+from plot.plotting_functions import ax_0N
 
 
 
@@ -80,7 +82,7 @@ class _Galaxy:
 	}
 	
 	# access to the HDF5 interface
-	h5_interface = Galaxy_H5_Interface()
+	h5_interface = H5_INTERFACE
 	
 	# this will keep track of what data is loaded for different galaxies
 	__loaded_data__ = None
@@ -251,17 +253,17 @@ class _Galaxy:
 		for attr, v in zip(attrs, container):
 			setattr(self, attr, v)
 	
-	def tryattr(self,attr):
+	def tryattr(self, attr, default=nan):
 		"""
-		try getting an attribute, return nan if invalid
+		Try getting an attribute, return `default` (default nan) if invalid.
 		"""
-		return getattr(self, attr, nan)
+		return getattr(self, attr, default)
 	
-	def tryattrs(self,*attrs,array=False):
-		"""map tryattr across multiple attributes"""
+	def tryattrs(self, *attrs, array=False, default=nan):
+		"""Map tryattr across multiple attributes."""
 		if (not array) and (set(attrs) & arrays):
-			return tuple(self.tryattr(attr) for attr in attrs)
-		return np.array(tuple(self.tryattr(attr) for attr in attrs))
+			return tuple(self.tryattr(attr, default) for attr in attrs)
+		return np.array(tuple(self.tryattr(attr, default) for attr in attrs))
 	
 	def getattrs(self, *vals):
 		"""
@@ -421,7 +423,9 @@ class Galaxy(_Galaxy):
 	
 	# again, keep memory usage down
 	__slots__ = ()
-		
+	
+	from prop.galaxy_file import galaxy_noise_data
+	
 	@classmethod
 	@add_doc(Galaxy_H5_Interface.write_files_to_h5)
 	def write_to_h5(cls, *filenames):
@@ -433,13 +437,59 @@ class Galaxy(_Galaxy):
 		return recomputed_galaxies
 	
 	@classmethod
-	def read_from_h5(filenames, attributes):
-		"""Not implemented. Will be useful if we want to retrieve data
-		for particular galaxies without establishing Galaxy instances.
-		Of interest but not essential at the moment.
+	def read_scalars(cls, filenames, attributes):
+		"""Retrieve scalar data as pandas DataFrame with filenames
+		as index, attributes as columns. Allows for reading data
+		for particular galaxies without establishing Galaxy instances
+		by directly interfacing with the HDF5 interface.
+		
+		`filenames`, `attributes` may both be strings or containers of
+		strings. <None> is not permitted for either parameter.
 		"""
-		...
-		NotImplemented
+		if filenames is None:
+			raise ValueError("pass non-None value for `filenames`")
+		if attributes is None:
+			raise ValueError("pass non-None value for `attributes`")
+		
+		d = cls.h5_interface.get_scalars_for_filenames(filenames, attributes)
+		
+		return d.values.squeeze()
+	
+	@classmethod
+	@add_doc(Galaxy_H5_Interface.read_arrays)
+	def read_arrays(cls, filenames, attributes):
+		"""Retrieve array data from the HDF5 interface.
+		The result of `Galaxy_H5_Interface.read_arrays` is returned.
+		
+		`filenames`, `attributes` may both be strings or containers of
+		strings. <None> is not permitted for either parameter."""
+		if filenames is None:
+			raise ValueError("pass non-None value for `filenames`")
+		if attributes is None:
+			raise ValueError("pass non-None value for `attributes`")
+		
+		d = cls.h5_interface.read_arrays(filenames, attributes, permit_absent = True)
+		
+		"""test:
+		results = Galaxy.read_arrays(filenames, attrs)
+		all(np.allclose(r,ar, equal_nan=True)
+			for a,f in zip(results, filenames)
+				for r,ar in zip(a, Galaxy(f).tryattrs(*attrs))
+		)
+		
+		# so far verified on cluster, ATLAS3D, OTHER, sim_fn
+		"""
+		
+		return d
+	
+	@classmethod
+	def get_noise_std(cls, filenames, quantities, reduce=True):
+		"""Get the standard deviation in a quantity as computed in
+		the Monte Carlo noise simulations."""
+		filenames, quantities = map(np.atleast_1d, (filenames, quantities))
+		r = cls.galaxy_noise_data.loc[filenames, quantities]
+		if reduce: return r.values.squeeze()
+		return r
 	
 	@classmethod
 	def compute_all_values(cls, filename, attribute_set=None):
@@ -506,6 +556,30 @@ class Galaxy(_Galaxy):
 		self.deprojection_plot()
 		self.m2_flux_process_plot()
 		self.m2_extent_process_plot()
+	
+	@classmethod
+	def asy_summary(cls, instance = None, galaxy_names = ('4254',)*4+('4561','4561')):
+		"""6-panel figure symmarizing asy types; pass a list of 6 names."""
+		gmap = {}
+		fig = plt.figure(FigureClass=PaperFigure,paper='methods')
+		axes = fig.subplots(2,3, subplot_kw={'polar':True})
+		axes=axes.ravel()
+		consume(map(ax_0N, axes))
+		if instance is not None:
+			galaxies = (instance for _ in range(6))
+			save_name = f'{instance.filename} asy summary plots'
+		else:
+			galaxies = (gmap.setdefault(n, cls(n)) for n in galaxy_names)
+			save_name = 'multi asy summary'
+		next(galaxies).ratio_process_plotter.m1_ht_process_polar_frame(0, axes[0])
+		next(galaxies).ratio_process_plotter.m1_extent_process_polar_frame(0, axes[1])
+		next(galaxies).ratio_process_plotter.m1_flux_process_polar_frame(0, axes[2])
+		next(galaxies).tail_map(axes[3])
+		next(galaxies).ratio_process_plotter.m2_extent_process_polar_frame(0, axes[4])
+		next(galaxies).ratio_process_plotter.m2_flux_process_polar_frame(0, axes[5])
+		fig.save(save_name, dump=2)
+		plt.close(fig)
+
 
 # functions defined in other modules intended to be set on this class
 for func in galaxy_plot_funcs.__all__:

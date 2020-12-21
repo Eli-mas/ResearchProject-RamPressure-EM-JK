@@ -24,7 +24,8 @@ from asy_io.asy_io import print_update
 from prop.galaxy_file import galaxy_samples#, galaxies
 from core import Queuer, consume, AttributeAbsent, groupby_whole, array_assign
 from comp.array_functions import get_regions
-from .Galaxy.galaxy_attribute_information import non_arrays, saveable_arrays, baseline_attributes
+from .Galaxy.galaxy_attribute_information import (non_arrays,
+	saveable_arrays, baseline_attributes)
 
 #_CLUSTER = True
 
@@ -66,6 +67,8 @@ def _make_galaxy_group(h5_file,g):
 	].create_group(g)
 
 def _intialize_galaxy_data_file_scalars(h5_file):
+	
+	# q = quantities, i.e. scalar quantity names
 	q = np.array(list(non_arrays - baseline_attributes),dtype='S')
 	#print('_intialize_galaxy_data_file_scalars: q:',q)
 	h5_file.attrs.create('scalar quantities', q)
@@ -76,9 +79,10 @@ def _intialize_galaxy_data_file_scalars(h5_file):
 			data=np.zeros([len(group.keys()), len(q)])
 		)
 		included_galaxies = np.sort([
-			g for g in galaxy_samples if 
-				Galaxy_H5_Interface.galaxy_samples_h5_group_mapping[galaxy_samples[g]]
-				== key
+			g for g in galaxy_samples if key ==
+				Galaxy_H5_Interface.galaxy_samples_h5_group_mapping[
+					galaxy_samples[g]
+				]
 		]).astype('S')
 		group.attrs.create('filenames',included_galaxies)
 
@@ -129,9 +133,7 @@ def write_h5_file_contents():
 
 class Galaxy_H5_Interface:
 	"""
-	Note: it will become desirable to map the GalaxyCollection class to h5
-	as well, meaning that this class should be generalized to an H5_interface class,
-	of which Galaxy_H5_Interface and GalaxyCollection_H5_Interface can be subclasses
+	May want to make this a singleton
 	"""
 	_instance = None
 	
@@ -232,8 +234,8 @@ class Galaxy_H5_Interface:
 	
 	def get_scalars_for_sample(self,sample_name,*,h5file=None):
 		"""
-		try returning scalar array in active memory;
-		if absent, retrieve from disk, save in active memory, and return
+		Try returning scalar array in active memory as pandas DataFrame;
+		if absent, retrieve from disk, save in active memory, and return.
 		"""
 		try:
 			return self.__scalar_data__[sample_name]
@@ -241,7 +243,18 @@ class Galaxy_H5_Interface:
 			return self._set_scalars_for_sample_from_disk(sample_name, h5file=h5file)
 	
 	def get_scalars_for_filenames(self, galaxies, attr=None):
-		sample_filename_lists = groupby_whole(galaxies, key = self.get_h5_sample_group_from_filename)
+		"""Get scalars for particular galaxies (filenames).
+		`galaxies`, `attr` may be strings or containers of strings;
+		`attr` may also be None, in which case all available scalar
+		attributes are returned. Results are returned as a pandas
+		DataFrame with the quantity names distinguishing columns
+		and galaxy names on the index."""
+		
+		if isinstance(galaxies, str): galaxies = (galaxies,)
+		
+		sample_filename_lists = groupby_whole(
+			galaxies, key = self.get_h5_sample_group_from_filename
+		)
 		
 		scalars=[
 			self.get_scalars_for_filenames_from_single_sample(g,*gal_list,attr=attr)
@@ -250,6 +263,7 @@ class Galaxy_H5_Interface:
 		
 		if len(scalars)==1:
 			return scalars[0]
+		
 		return pd.concat(scalars)
 	
 	def get_scalars_for_filenames_from_single_sample(self, sample_name, *galaxies, attr=None):
@@ -295,13 +309,15 @@ class Galaxy_H5_Interface:
 		)
 	
 	@classmethod
-	def group_attributes(cls,attributes):
+	def group_attributes(cls, attributes):
 		"""
-		given a set of attributes, return a dict with two keys:
-			True: the corresponding value is a list of attributes identified as arrays
-			False:  the corresponding value is a list of attributes identified as non-arrays
+		Given a set of attributes, return a dict with two keys:
+			True:	the corresponding value is a list of attributes
+					identified as arrays
+			False:	the corresponding value is a list of attributes
+					identified as non-arrays
 		"""
-		return groupby_whole(attributes, key = lambda v: attributes in arrays)
+		return groupby_whole(attributes, key = lambda v: attributes in saveable_arrays)
 	
 	def read_scalars(self, filenames, attributes=None):
 		if self.preload_scalars:
@@ -342,33 +358,71 @@ class Galaxy_H5_Interface:
 		
 		return scalars
 	
-	def read_arrays(self, filenames, attributes):
+	def read_arrays(self, filenames, attributes, permit_absent=False):
+		"""Read array data from the h5 interface for any galaxies
+		and any saveable array attributes. `filenames`, `attributes`
+		may be strings or containers of strings.
+		
+		If `permit_absent`, attributes not defined for particular filenames
+		will be substituted with None. If False (default), a KeyError
+		is raised instead.
+		"""
+		
+		if isinstance(filenames, str): filenames = (filenames,)
+		if isinstance(attributes, str): attributes = (attributes,)
+		
 		attribute_groups = self.group_attributes(attributes)
 		filename_mapping = {g:i for i,g in enumerate(filenames)}
 		filename_groups = groupby_whole(
-			enumerate(filenames),
-			key = lambda p: self.get_h5_sample_group_from_filename(p[1])
+			filenames,
+			key = self.get_h5_sample_group_from_filename
 		)
 		
 		results = [None]*len(filenames)
-		for g,filename_list in filename_groups:
+# 		print("read_arrays:\n\tfilename_groups:",filename_groups)
+# 		print('\tfilename_mapping:',filename_mapping)
+		for g, filename_list in filename_groups.items():
+# 			print(f"\tg({g}): filename_list:",filename_list)
 			# put the results into the results list
 			# in the proper locations
 			array_assign(
 				results, # destination list
 				(filename_mapping[f] for f in filename_list), # indices
 				self._read_galaxy_arrays_from_sample(
-					g, filename_list, attributes
+					g, filename_list, attributes,
+					permit_absent = permit_absent
 				) # values
 			)
 		
 		return results
 	
-	def _read_galaxy_arrays_from_sample(self, sample_name, filenames, attributes):
+	def _read_galaxy_arrays_from_sample(self, sample_name, filenames, attributes, permit_absent):
+		"""Read array data from the h5 interface for any galaxies from
+		a single sample and any saveable array attributes.
+		`filenames`, `attributes` may be strings or containers of strings.
+		
+		If `permit_absent`, attributes not defined for particular filenames
+		will be substituted with None. If False (default), a KeyError
+		is raised instead.
+		"""
 		sample_group = self.reader[sample_name]
-		return [self._read_arrays_from_galaxy(sample_group[fn],attributes) for fn in filenames]
+		return [self._read_arrays_from_galaxy(
+					sample_group[fn], attributes,
+					permit_absent = permit_absent)
+				for fn in filenames]
 	
-	def _read_arrays_from_galaxy(self,galaxy_h5_container, attributes):
+	def _read_arrays_from_galaxy(self, galaxy_h5_container, attributes, permit_absent):
+		"""Read saveable array attributes from the h5 interface for a
+		single galaxy from a given sample container in the h5 interface.
+		`filenames`, `attributes` may be strings or containers of strings.
+		
+		If `permit_absent`, attributes not defined for particular filenames
+		will be substituted with None. If False (default), a KeyError
+		is raised instead.
+		"""
+		if permit_absent:
+			result_gen = (galaxy_h5_container.get(a,nan) for a in attributes)
+			return [a if a is nan else a[()] for a in result_gen]
 		return [galaxy_h5_container[a][()] for a in attributes]
 	
 	#def _read_galaxies_from_sample(self, group, filenames, array_attributes):
@@ -649,7 +703,7 @@ class Galaxy_H5_Interface:
 		#if err is not None:
 		#	raise err
 	
-	def _write_arrays_to_h5_single(self,galaxy_instance):
+	def _write_arrays_to_h5_single(self, galaxy_instance):
 		"""
 		Lower-level function that writes galaxy data to h5 file.
 		
@@ -667,7 +721,7 @@ class Galaxy_H5_Interface:
 		for attr in saveable_arrays:
 			# if the attribute is absent on this instance, skip it
 			try:
-				data = getattr(galaxy_instance,attr)
+				data = getattr(galaxy_instance, attr)
 			except AttributeAbsent:
 				continue
 			try:
@@ -789,3 +843,11 @@ class H5GenericResultSet(H5ResultSet):
 	"""
 	def __init__(self,filenames,names,values):
 		super().__init__(filenames,names,values,False)
+
+
+
+
+
+H5_INTERFACE = Galaxy_H5_Interface()
+
+__all__ = ('Galaxy_H5_Interface', 'H5_INTERFACE')

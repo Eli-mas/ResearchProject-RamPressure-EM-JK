@@ -152,6 +152,7 @@ def polar_reindex_multi(a,mod,*arrays): #use this for polar_fill in plotting_fun
 def polar_reduction(reducing_function,ar,*a, nomask=True, **k):
 	"""Apply an aggregating function over 1-d or 2-d polar data.
 	See '_polar_reduction', 'polar_reduce_2d' for details."""
+	ar = np.atleast_1d(ar)
 	if ar.ndim==1:
 		try: k.pop('squeeze')
 		except KeyError: pass
@@ -206,8 +207,11 @@ def polar_reduce_2d(ar,mod,axis=0,pr=False, return_start=False):#,modulate=True
 	if pr: lprint('ar:',ar)
 	
 	if ar.shape[axis]<=1:
-		if return_start: return ar,np.zeros(ar.shape[1-axis])
-		else: return ar
+# 		if return_start: return ar,np.zeros(ar.shape[1-axis])
+# 		else: return ar
+		return (ar, np.zeros(ar.shape[1-axis], dtype=int),
+				np.argsort(ar,axis=axis),
+				np.zeros(ar.shape[1-axis], dtype=int))
 	
 	ar=ar%mod
 	sort_inds=np.argsort(ar,axis=axis)

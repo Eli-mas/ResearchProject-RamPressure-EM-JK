@@ -4,7 +4,8 @@ from multiprocessing import Pool, cpu_count
 
 from .classes.Galaxy.Galaxy import Galaxy
 from .classes.GalaxyCollection import *
-from .classes import GalaxyCollection
+from .classes.GalaxySet import *
+from .classes import GalaxyCollection, GalaxySet
 
 from cls.classes.h5 import (initialize_galaxy_data_file, 
 		Galaxy_H5_Interface, open_galaxy_data_file)
@@ -51,7 +52,7 @@ from cls.classes.h5 import (initialize_galaxy_data_file,
 	return s.lower()"""
 
 
-__all__ = ('Galaxy', *GalaxyCollection.__all__,
+__all__ = ('Galaxy', *GalaxySet.__all__, *GalaxyCollection.__all__,
 	'Galaxy_H5_Interface', 'initialize_galaxy_data_file', 'open_galaxy_data_file')
 #
 

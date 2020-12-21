@@ -28,6 +28,7 @@ from prop.galaxy_file import OTHER, ATLAS3D, sim_fn
 from .galattr.array_attr import *
 from .galattr.nonarray_attr import *
 
+# attributes that pertain to m=2 asymmetry
 m2_attributes=frozenset((
 	'm2ext_angle','m2ER','m2_FluxAngle','m2FR','m2_weights',
 	'extentlist_graph_deproject','shortside_list_graph_deproject',
@@ -36,12 +37,15 @@ m2_attributes=frozenset((
 	'pl_ar_deproject','m2_ext_ratios'
 ))
 
+# attributes forbidden from high-inclination simulations
 high_i_sim_attributes_denied = m2_attributes | observational_only_attributes
 
+# tell a particular Galaxy instance how to behave
 meta_attributes=frozenset((
 	'compute','debug','save', 'absent','save'
 ))
 
+# ...
 other_attributes = frozenset(('ratio_process_plotter',))
 
 dynamic_attributes = arrays | non_arrays | other_attributes
