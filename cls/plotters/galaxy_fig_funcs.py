@@ -4,11 +4,13 @@ from common.arrays.roll_wrap_funcs import *
 from comp.computation_functions import *
 from comp.array_functions import get_region_inds, reindex, minmax
 import comp.asymmetry_functions as asy_funcs
+from asy_io.asy_paths import EXAMPLES_DIRECTORY
 
 import numpy as np, pandas as pd
 from matplotlib import gridspec, pyplot as plt
 
 from plot.plotting_functions import *
+from plot.asy_figplot_base import polar_plotter
 
 from prop.asy_prop import *
 from prop.asy_prop_plot import *
@@ -187,11 +189,32 @@ def show_m2_regions(g, polar_ax=None, active=False, angle=30, arrow_kw = {}):
 		fill_r[:, 0], fill_r[:, 1], None, 
 		color=center_shading, ax=polar_ax, zorder=2)
 
+@makeax
+def raw_zmap(self, ax=None, save=False):
+	self.zshow(cmap='Greys_r', remove_background=False,
+			   inout=False, center_lines=False, border=False)
+	ax.axis(self.get_imshow_lims())
+	if save:
+		fig_size_save(f'{EXAMPLES_DIRECTORY}{self.filename} raw zmap', (8,8), fmt='png')
+
+# @makeax
+def angle_map_plot(self, polar_ax=None, save=False):
+	if polar_ax is None: polar_ax = ax_0N()
+	polar_plotter(self, polar_ax)
+	self.zshow(ax=create_hidden_axis(polar_ax), border=False, inout=False)
+	if save:
+		fig_size_save(f'{EXAMPLES_DIRECTORY}{self.filename} angle map', (8,8), fmt='png')
+
+def raw_to_angles_plot(self, save=True):
+	self.raw_zmap(plt.subplot(121))
+	self.angle_map_plot(plt.subplot(122, polar=True))
+	if save:
+		fig_size_save(f'{EXAMPLES_DIRECTORY}{self.filename} raw to angle map', fmt='png')
 
 __all__ = ('m1_extent_process_polar_frame','m1_flux_process_polar_frame',
 'm1_extent_process_ratio_frame','m1_flux_process_ratio_frame',
 'm1_ht_process_polar_frame','m1_ht_process_ratio_frame',
 'm1_extent_overview_plot','m1_flux_overview_plot','m1_ht_overview_plot',
 'm2_extent_overview_plot','m2_flux_overview_plot','deprojection_plot',
-'m1_extent_maximizing_angle_plot',
-'show_m1_regions','show_m2_regions','m1_m2_regions',)
+'m1_extent_maximizing_angle_plot','angle_map_plot','raw_to_angles_plot',
+'show_m1_regions','show_m2_regions','m1_m2_regions','raw_zmap')

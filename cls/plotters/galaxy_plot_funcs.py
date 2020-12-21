@@ -1,7 +1,9 @@
 import numpy as np
-from matplotlib import gridspec, pyplot as plt
+from matplotlib import gridspec, pyplot as plt, cm
+# from matplotlib.colors import LinearSegmentedColormap as LSColormap
 
 from plot.plotting_functions import *
+from plot.plot_classes import PaperFigure
 from prop.asy_prop_plot import *
 
 from comp.computation_functions import *
@@ -17,32 +19,41 @@ from cls.adc_prep import centroid_types
 from prop.asy_prop import *
 from prop.asy_prop_plot import *
 
+from common import consume
+import colorcet
+
 @makeax
 def zshow(self,ax=None,data=None,WA=None, border=True,
 		  inout=True, outer=False, center=False,
 		  vmin=None,vmax=None,
-		  axis=True, cmap = None,
-		  center_lines=True):
+		  axis=True, cmap = HI_inner_colormap,
+		  center_lines=True, remove_background = True,
+		  **kw):
 
 	if inout and not (center or outer):
+		outer_data = self.zdata_regions.imag
 		p=(
-			ax.imshow(znan(self.zdata_regions.real),cmap=HI_inner_colormap),
-			ax.imshow(znan(self.zdata_regions.imag),cmap=HI_outer_colormap)
+			ax.imshow(znan(self.zdata_regions.real),cmap=HI_inner_colormap, **kw),
+			ax.imshow(znan(outer_data) if remove_background else outer_data,
+					  cmap=HI_outer_colormap, **kw)
 		)
 	else:
-		cmap = cmap if cmap else HI_inner_colormap
 		if outer:
-			p=ax.imshow(znan(self.zdata_regions.imag),cmap=cmap)
+			data = self.zdata_regions.imag
+			p=ax.imshow(znan(data) if remove_background else data, cmap=cmap, **kw)
 		elif center:
-			p=ax.imshow(znan(self.zdata_regions.real),cmap=cmap)
+			data = self.zdata_regions.real
+			p=ax.imshow(znan(data) if remove_background else data, cmap=cmap, **kw)
 		else:
 			if data is None:
 				data = self.zdata
+				if remove_background:
+					data = znan(data)
 
 			if vmin is None:
-				p=ax.imshow(znan(data), cmap = cmap)
+				p=ax.imshow(data, cmap = cmap, **kw)
 			else:
-				p=ax.imshow(znan(data), vmin=vmin, vmax=vmax, cmap = cmap)
+				p=ax.imshow(data, vmin=vmin, vmax=vmax, cmap = cmap, **kw)
 
 		p=(p,)
 
@@ -72,7 +83,40 @@ def polar_imshow(self,polar_ax=None, inout=False, border=False, center_lines=Fal
 	#polar_ax.set_xticklabels(polar_ax.set_yticklabels([]))
 	polar_ax.set_yticks([])
 
+def tail_map(self, polar_ax=None, cmap=tail_map_cmap):
+	polar_ax.plot(*self.iet_ar.T, c='k', ls=(0, (3, 1)), lw=3, zorder=0)
+	polar_ax.plot(*self.pl_ar.T, c=outer_HI_color, zorder=0)
+	polar_ax.set_xticklabels([])
+	polar_ax.set_yticklabels([])
+	self.zshow(inout=False, outer=True, border=False, cmap = cmap,
+			   ax=polar_ax.figure.add_axes([0,0,1,1], projection='dual', host=polar_ax))
+	r = keepax(ax=polar_ax)[-2:]
+# 	polar_ax.plot([self.tail_A*deg_to_rad]*2, r, c='r', zorder=-1)
+# 	polar_ax.plot([self.TA*deg_to_rad]*2, r, c='r', ls=':', zorder=-1)
+	theta = self.TA*deg_to_rad + np.pi
+	polar_ax.annotate(
+		"", xytext=[theta, 0], xy=[theta, r[-1]], zorder=1,
+		arrowprops={'arrowstyle':"->", 'color':'r', 'lw':2,
+					'shrinkA':0, 'shrinkB':0, 'zorder':2}
+	)
+	polar_ax.scatter(self.tail_A*deg_to_rad, self.tail_r*self.pix_scale_arcsec,
+					 c='cyan', marker='x', s=200, zorder=2)
+# 	polar_ax.set_ylim(top=np.diff(self.get_imshow_lims()[:2])[0]/2*self.pix_scale_arcsec)
 
+def asy_summary_plots(self):
+	self.__class__.asy_summary(instance=self)
+	"""fig = plt.figure(FigureClass=PaperFigure,paper='methods')
+	axes = fig.subplots(2,3, subplot_kw={'polar':True})
+	axes=axes.ravel()
+	consume(map(ax_0N, axes))
+	self.ratio_process_plotter.m1_ht_process_polar_frame(0, axes[0])
+	self.ratio_process_plotter.m1_extent_process_polar_frame(0, axes[1])
+	self.ratio_process_plotter.m1_flux_process_polar_frame(0, axes[2])
+	self.tail_map(axes[3])
+	self.ratio_process_plotter.m2_extent_process_polar_frame(0, axes[4])
+	self.ratio_process_plotter.m2_flux_process_polar_frame(0, axes[5])
+	fig.save(f'{self.filename} asy summary plots')
+	plt.close(fig)"""
 
 def plot_ratio_arrays(self, index=None, ax=None, labels=True, legend_kw={}, which=set(range(5))):
 	"""`which` argument should be a set"""
@@ -207,4 +251,24 @@ def plot_outer_flux_sector(self,*a,**kw):
 
 __all__ = ('zshow','polar_imshow','zshow','plot_ratio_arrays','polar_boundary_plot',
 'iter_plot_ratio_arrays','noncenter_show','plot_angular_property',
-'plot_outer_boundary_sector','plot_total_flux_sector','plot_outer_flux_sector',)
+'plot_outer_boundary_sector','plot_total_flux_sector','plot_outer_flux_sector',
+'tail_map', 'asy_summary_plots')
+
+if __name__ == '__main__':
+	from cls.adc import Galaxy
+	from core import AttributeAbsent
+# 	Galaxy('4254').asy_summary_plots()
+	Galaxy.asy_summary()
+	
+	for g in ('4330', '4561', '4254'):
+		continue
+		g = Galaxy(g)
+		g.m1_ht_overview_plot()
+		g.m1_extent_overview_plot()
+		g.m1_flux_overview_plot()
+		try:
+			g.m2_extent_overview_plot()
+			g.m2_flux_overview_plot()
+		except AttributeAbsent:
+			pass
+	
