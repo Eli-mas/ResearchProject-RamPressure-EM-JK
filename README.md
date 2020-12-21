@@ -19,7 +19,7 @@ I have posted the code here that pertains to the earlier papers, particularly th
 Components that allow the scripts to work but do not contribute to an understanding of the paper's methods, such as files defining paths to other files on the machine, are not included. A number of plotting routines are also not included yet.
 
 The overview of what is here:
-* `asy\_io`: miscellaneous functions relating to input and output.
+* `asy_io`: miscellaneous functions relating to input and output.
 * `cls`: classes that make for convenient scripting and utility across the project.
     - `analyze`: functions pertinent to the GalaxySeries class grouped modularly by general purpose
     - `classes`: classes that provide an interface to data loading, storage, and computation
@@ -39,6 +39,4 @@ The overview of what is here:
 * `prop`: basic quantities and variable definitions. The scripts in this module are mostly for defining the galaxies that are used elsewhere in the project.
 
 ## Usage
-This repository is posted to GitHub for reference; it is not meant to be downloaded to another machine as a plug-and-play package as of yet. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first few papers.
-
-The state of comments in the code is variable--I am working on this. There are also some points of general maintenance to be handled, such as removing obsolete functions, but for the most part what is in these files is relevant to the current work.
+This repository is posted to GitHub for reference; it is not meant to be downloaded to another machine as a plug-and-play package as of yet. The purpose of having this code up is to allow for open inspection, and I have tried to put up all code that is critical to understanding what is going on in the first set of papers.
