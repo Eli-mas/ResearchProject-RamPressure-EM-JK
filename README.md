@@ -1,6 +1,12 @@
 # ResearchProject-RamPressure-EM-JK
 Repository to track the development of an astrophysical research project conducted with [Jeffrey Kenney](http://www.astro.yale.edu/kenney/pages/index.html) of Yale's astronomy department.
 
+## My role in the project
+* **Software development**: When I started on the project, its scope was a small set of Python code implementing the basis of an asymmetry algorithm. I expanded it into a series of interwoven modules aimed at being more functional, extensible, efficient software; for example, I implemented a wrapper around the HDF5 Python bindings (h5py), which allows our data storage capacity to scale readily. Since starting, I have been the sole developer of this code base.
+* **Efficiency and scope of analysis**: the original implementation required ~20-30 minutes to analyze a set of ~50 galaxies, each of which was relatively small in size. I improved this drastically so that we could analyze considerably more data. Our current dataset, comprising ~1350 galaxies (many of which are considerably larger than those in the original sample), runs through the primary analysis in 1-2 minutes, while executing additional algorithms beyond the original implementation. This has been achieved primarily by employing modules from the scientific Python ecosystem (numpy, scipy, pandas, numba, h5py) as well as parallelization via Python's multiprocessing module.
+* **Analysis/Methodology**: When I first started I was tasked with completing the initial algorithm with slight adaptations. However, I wanted to contribute more to the project, and my role expanded to include developing new methodology. Dr. Kenney and I have collaborated closely to interpret results, conceive of data visualizations that would help our analysis, and generate new analytical ideas.
+* **Authorship**: I am first author on our most analytically intensive article (paper II), and co-author on others.
+
 ## Project aims and focus
 The purpose of the project is to develop a simple yet objective & reliable method for detecting the presence of ram pressure acting on a galaxy, and then estimating the direction of this pressure over the galaxy, given only a moment-0 map of the galaxy's gas content (HI [neutral hydrogen] for observational data, mixed for simulated data) at a particular time. We then seek to understand how our method performs on various galaxies for which we have data.
 

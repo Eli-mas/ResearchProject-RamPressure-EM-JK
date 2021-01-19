@@ -32,6 +32,7 @@ from matplotlib.colors import Normalize
 
 from prop.ref_rel_data import *
 from prop.asy_prop_plot import *
+from prop.asy_prop import *
 
 from asy_io.asy_paths import *
 from asy_io.asy_io import makepath, get_shortside_data, touch_directory, merge_dicts
@@ -42,9 +43,6 @@ from comp.computation_functions import sigfig, find_containing_angle, p_to_c, \
 
 from comp.array_functions import minmax, get_region_inds, take_by_condition, get_regions_from_other
 
-from prop.asy_prop import *
-
-# INITIAL=
 
 #import matplotlib.animation as manimation
 #FFMpegWriter = manimation.writers['ffmpeg']
@@ -203,29 +201,29 @@ paperplot=partial(saveplot,savefunc=paper_tex_save)
 paperplot1=partial(saveplot,savefunc=partial(paper_tex_save,paper=1))
 paperplot2=partial(saveplot,savefunc=partial(paper_tex_save,paper=2))
 
-def plot_shortside(Ginstance,ax=None):
+def plot_shortside(Ginstance, ax=None):
 	"""Plot for inspecting the extents along the shortside of a galaxy."""
 	if ax is None: ax=plt.gca(polar=False)
 	
-	shortside_show,shortside_median=get_shortside_data(Ginstance)
+	shortside_show,shortside_median=get_shortside_data(Ginstance, deny_m2_high_i=True)
 	
 	PA_plot=-90+(Ginstance.PA-shortside_show[0,0])%360
 	if PA_plot>90: PA_plot-=180
 	ax.plot(360/a2l*np.arange(0,len(shortside_show))-90,shortside_show[:,1],c='green')
 	ax.set_xlim(-95,95)
 	if Ginstance.inclination>high_i_threshold:
-		ax.set_xlabel('$\\theta-\phi_{c}$')
-		ax.set_ylabel('$r(\\theta)$')
+		ax.set_xlabel(extent_plot_xlabel)
+		ax.set_ylabel(extent_plot_ylabel_highi)
 		low,high=int(np.min(shortside_show[:,1])),int(np.max(shortside_show[:,1]))
 		ax.set_yticks([low,high])
 		ax.set_yticklabels([low,high])
 	else:
-		ax.set_xlabel('$\\theta-\phi_{c}$')
-		ax.set_ylabel('$r_{d}(\\theta)/med(r)$')
+		ax.set_xlabel(extent_plot_xlabel)
+		ax.set_ylabel(extent_plot_ylabel_lowi)
 		ax.set_ylim(0.3,2.2)
 		ax.set_yticks([0.3,1.25,2.2])
 		ax.set_yticklabels([0.3,1.25,2.2])
-	ax.bar(PA_plot, keepax(ax)[-1], color=[0,1,0], edgecolor='none')
+	ax.bar(PA_plot, keepax(ax=ax)[-1], color=[0,1,0], edgecolor='none')
 
 '''what follows is for `radial_distribution`'''
 #include 4921
@@ -255,12 +253,13 @@ def eff_rad_calc(region, f_eff=.9):
 	d_eff=np.interp(r_eff,pre_r_eff,d_pre_r_eff)
 	return r_eff,d_eff
 
-def radial_distribution(Ginstance,ax=None,ylabel=True,text_right=1,text_top=.99,text_hspace=.2):
+def radial_distribution(Ginstance, ax=None, ylabel=True,
+						text_right=1, text_top=.99, text_hspace=.2):
 	"""
 	Get the global radial distribution of flux
 	"""
 	filename,R25,=Ginstance.filename,Ginstance.R25
-	_,shortside_median=get_shortside_data(Ginstance)
+	_,shortside_median=get_shortside_data(Ginstance, deny_m2_high_i=True)
 	
 	if ax is None: ax=plt.gca(polar=False)
 	if '3392' in filename: galfile, galaxy = DATA_SOURCES_PATH+'radial profiles/ic03392.both', '3392'
@@ -283,8 +282,12 @@ def radial_distribution(Ginstance,ax=None,ylabel=True,text_right=1,text_top=.99,
 		ax.plot(radius[:(div_index+1)],density[:(div_index+1)],'-',color=[0,0,1],lw=rd_width)
 		ax.plot(radius[(div_index-1):],density[(div_index-1):],'--',color=[0,0,1],lw=rd_width)
 	
-	if ylabel: ax.set_ylabel('HI surface density $[M_\odot/pc^2]$',fontsize=20,labelpad=ax3_labelpad)
-	ax.tick_params(axis='y',which='major',pad=ax3_tickpad)
+	if ylabel:
+		ax.set_ylabel('HI surface density $[M_\odot/pc^2]$',
+					  fontsize=20, labelpad = ax3_labelpad, rotation=270,
+					  va='top')
+		ax.yaxis.set_label_position("right")
+# 	ax.tick_params(axis='y', which='major', pad=ax3_tickpad)
 	ax.set_xlabel(r'$r/R_{25}$',fontsize=20)
 	
 	ax.axis([0,5,0.1,27])
@@ -313,46 +316,39 @@ def format_ratio_axis(ax,m=1,labels=True):
 	ax1=ax
 	ax1.tick_params(axis='y',which='major',pad=ax1_tickpad)
 	
-	ylabel,ylim=('Extent Ratio, Head/Tail Flux Ratio',ax1_ylim) if m==1 else ('m=2 Extent Ratio',m2ax1_ylim)
+	if m==1:
+		ylabel, ylim = asymmetry_plot_m1_r1_axis_label, ax1_ylim
+	else:
+		ylabel, ylim = asymmetry_plot_m2_r1_axis_label, m2ax1_ylim
+	
 	if labels:
-		ax1.set_ylabel(ylabel,fontsize=ax1_fs,labelpad=ax1_labelpad)
-		ax1.set_xlabel('Angle from North (degrees)',fontsize=ax1_fs)
+		ax1.set_ylabel(ylabel, fontsize = ax1_fs, labelpad = ax1_labelpad)
+		ax1.set_xlabel('Angle from North (degrees)', fontsize = ax1_fs)
 	
 	ax1.set_xticks([0,90,180,270,360])
 	ax1.set_xticklabels([0,90,180,270,0])
 	
 	ax1.set_xlim(0,xmax=360)
 	ax1.set_yscale('log')
-	ax1.set_ylim(ymin=1/ylim,ymax=ylim)
+	ax1.set_ylim(ymin = 1/ylim, ymax = ylim)
 	
-	ax1.grid(b=True, which='major',axis='x')
-	ax1.axhline(y=1, color='black',ls=':')
+	ax1.grid(b=True, which='major', axis='x')
+	ax1.axhline(y=1, color='black', ls=':')
 
-def format_flux_ratio_axis(Ginstance,ax2,which,labels=True,legend=True,**lkw):
+def format_flux_ratio_axis(Ginstance, ax2, labels=True):
 	"""Aesthetics function for plotting norm-0 ratios."""
-	ax2.set_ylim(ymin=-ax2_ylim,ymax=ax2_ylim)
+	ax2.set_ylim(ymin = -ax2_ylim, ymax = ax2_ylim)
 	
 	if labels:
-		ax2.set_ylabel('Outer Galaxy Flux/Total Flux', rotation=-90,labelpad=20,fontsize=ax1_fs)
-		ax2.set_xlabel('Angle from North',fontsize=ax1_fs)
-	
-	if legend:
-		for i,(c,l,attr) in enumerate(zip(
-			(qext_color,ext_color,flux_color,qflux_color,ht_color),
-			('Q Extent','Extent','Outer Flux','Q Outer Flux','H/T Flux'),
-			('qE','E','F','qF','HT'),
-		)):
-			if i in which:
-				angle,ratio=Ginstance.getattrs(attr+'A',attr+'R')
-				pre_label=attr#l
-				label=pre_label+' Ratio (%g, %.1f\N{DEGREE SIGN})' %(sigfig(ratio,d=figplot_ratio_sigfig),angle%360)
-				ax2.plot([],[],lw=2,color=c, label=label)
-		ax2.legend(**lkw)
+		ax2.set_ylabel(asymmetry_plot_m1_r0_axis_label,
+					   rotation=-90, labelpad=20, fontsize=ax1_fs)
+		ax2.set_xlabel('Angle from North', fontsize=ax1_fs)
 
 def get_edge_radius(Ginstance):
 	"""Get a radius that will allow for comfortably viewing
 	the entirety of a galaxy in a polar matplotlib plot."""
-	return 1.05*(np.max(Ginstance.extentlist_graph[:,1])+np.sqrt(2)*Ginstance.pix_scale_arcsec)
+	return 1.05*(np.max(Ginstance.extentlist_graph[:,1]) +
+				 np.sqrt(2)*Ginstance.pix_scale_arcsec)
 
 def angles_figplot(polar,edge_radius,angle,c,err=0,errheight=0,ref_key=None,asy_key=None,errplot_kwargs={},ref_value=False,sig2=False,**kwargs):
 	"""Plot an asymmetry angle on a polar axis.

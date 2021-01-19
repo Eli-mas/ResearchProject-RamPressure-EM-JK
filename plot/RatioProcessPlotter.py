@@ -266,4 +266,6 @@ class RatioProcessPlotter:
 	m2_extent_overview_plot = partialmethod(__overview_plot, m=2, qtype='extent')
 	m2_flux_overview_plot = partialmethod(__overview_plot, m=2, qtype='flux')
 
+RatioProcessPlotter.__doc__ = __doc__
+
 __all__ = ('RatioProcessPlotter',)

@@ -103,9 +103,9 @@ def ellipse(a, d_beam_arcsec, inclination, PA, b=None, normal=False, m2=False, e
 			print('ellipse: original b =', b)"""
 		if m2:
 			"""if debug: ab_ar=[[a, b]]"""
-			r_beam_arcsec=d_beam_arcsec/2
-			a=quadrature_sum(a, r_beam_arcsec)
-			b=quadrature_sum(a*np.cos(inc), r_beam_arcsec*np.sin(inc))
+			r_beam_arcsec = d_beam_arcsec/2
+			a = quadrature_sum(a, r_beam_arcsec)
+			b = quadrature_sum(b, r_beam_arcsec*np.sin(inc))
 			"""if debug and debug_master_keys['m2_calc']:
 				print('ellipse: m=2 a =', a)
 				print('ellipse: m=2 b =', b)

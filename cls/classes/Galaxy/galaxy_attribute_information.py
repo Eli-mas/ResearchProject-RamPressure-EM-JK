@@ -45,7 +45,7 @@ meta_attributes=frozenset((
 	'compute','debug','save', 'absent','save'
 ))
 
-# ...
+# miscellaneous
 other_attributes = frozenset(('ratio_process_plotter',))
 
 dynamic_attributes = arrays | non_arrays | other_attributes
@@ -58,7 +58,7 @@ all_attributes = frozenset(
 
 
 
-
+# these pertain to the weighted tail angle, and variants
 centroid_angle_attrs=(
 	'centroid_angle','fweighted_centroid_angle',
 	'dweighted_centroid_angle','weighted_centroid_angle'
@@ -75,7 +75,9 @@ sorted_nonarray_attributes = tuple(sorted(non_arrays))
 
 
 def get_file_info(filename):
-	"""returns the information required to access data for a given galaxy"""
+	"""Returns the information required to access data for a given galaxy:
+	'openname' (path to the fits file) and 'filetype' (tells what sample
+	the galaxy belongs to). Returned as a tuple of strings."""
 	if 'x' in filename or 'y' in filename:
 		filetype = 's'
 		"""if filename not in sim_fn:

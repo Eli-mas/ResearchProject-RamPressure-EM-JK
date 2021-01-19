@@ -23,9 +23,9 @@ from common import consume
 import colorcet
 
 @makeax
-def zshow(self,ax=None,data=None,WA=None, border=True,
+def zshow(self, ax=None, data=None, WA=None, border=True,
 		  inout=True, outer=False, center=False,
-		  vmin=None,vmax=None,
+		  vmin=None, vmax=None,
 		  axis=True, cmap = HI_inner_colormap,
 		  center_lines=True, remove_background = True,
 		  **kw):
@@ -118,33 +118,35 @@ def asy_summary_plots(self):
 	fig.save(f'{self.filename} asy summary plots')
 	plt.close(fig)"""
 
-def plot_ratio_arrays(self, index=None, ax=None, labels=True, legend_kw={}, which=set(range(5))):
-	"""`which` argument should be a set"""
-	#filename=self.filename
-	arrays=self.getattrs(
-		self.score * [rad_to_deg, 1], self.qscore * [rad_to_deg, 1],
-		'htscores_ar','fluxscore_ar','qfluxscore_ar'
-	)
-	arrays=[(ar if i in which else None) for i,ar in enumerate(arrays)]
-	if index is not None: arrays=[ar[index] if (ar is not None) else ar for ar in arrays]
-	score_ar,qscore_ar,htscores_ar,fluxscore_ar,qfluxscore_ar=arrays
+def plot_ratio_arrays(self, ax=None, labels=True):
 	lkw=dict(loc=8)#,size=lsize
 	if ax is None: ax=plt.gca(polar=False)
-	for ar,c in zip((score_ar,qscore_ar,htscores_ar),(ext_color,qext_color,ht_color)):
-		if ar is not None: ax.plot(ar[:,0],ar[:,1], lw=2, color=c)
 	
-	format_ratio_axis(ax,labels=labels)
 	
-	if which.difference({0,1,2}):
-		ax2 = ax.twinx()
-		for ar,c in zip ((fluxscore_ar,qfluxscore_ar),(flux_color,qflux_color)):
-			if ar is not None: ax2.plot(ar[:,0],ar[:,1],color=c,lw=2)
-		
-		legend=isinstance(legend_kw,dict)
-		if legend and legend_kw: lkw.update(legend_kw)
-		format_flux_ratio_axis(self, ax2, which, labels=labels, legend=legend, **lkw)
-		
-		return ax2
+	for ar,n in (
+		(self.htscores_ar,'HTR'),
+	):
+		ax.plot(ar[:,0],ar[:,1], lw=2, color=COLORS[n], label=LABELS[n])
+	
+	for ar,n in (
+		(self.qscore,'qER'),
+		(self.score_trig,'ER_trig'),
+		(self.score,'ER'),
+	):
+		ax.plot(*(ar*[rad_to_deg,1]).T, lw=2, color=COLORS[n], label=LABELS[n])
+	
+	format_ratio_axis(ax, labels=labels)
+	
+	ax2 = ax.twinx()
+	for ar,n in (
+		(self.fluxscore_ar,'FR'),
+# 		(qfluxscore_ar,qflux_color)
+	):
+		ax2.plot(ar[:,0], ar[:,1], lw=2, color=COLORS[n], label=LABELS[n])
+	
+	format_flux_ratio_axis(self, ax2, labels=labels)
+	
+	return ax2
 
 def iter_plot_ratio_arrays(self,show=False,labels=False,which=set(range(4)),gs_kw={},fig_kw={},**kw):
 	if not isinstance(which,set): which=set(listify2(which))
@@ -245,14 +247,28 @@ def plot_outer_flux_sector(self,*a,**kw):
 	return self.plot_angular_property(self.nc_f_per_t,*a,**kw)
 
 
+def pplot_boundary(self, ax=None, d=False, **kw):
+	ax=ax_0N(ax)
+	if d: ax.plot(*(self.extentlist_graph_deproject[:,:2] * [deg_to_rad,1]).T)
+	else: ax.plot(*(self.extentlist_graph * [deg_to_rad,1]).T)
+	
 
-
-
+def pplot_boundaries(self, ax=None, save=True, **kw):
+	if self.inclination > HIGH_I_THRESHOLD:
+		return
+	ax=ax_0N(ax)
+	ax.plot(*self.m2interior_edge.T, c='k')
+	self.pplot_boundary(ax, c=outer_HI_color, **kw)
+	self.pplot_boundary(ax, True, c=MPL_COLORS[1], **kw)
+	if save:
+		test_fig_save(f'{self.filename} m1, m2 boundaries',
+					  'm1, m2 boundaries', self.sample,
+					  close=True)
 
 __all__ = ('zshow','polar_imshow','zshow','plot_ratio_arrays','polar_boundary_plot',
 'iter_plot_ratio_arrays','noncenter_show','plot_angular_property',
 'plot_outer_boundary_sector','plot_total_flux_sector','plot_outer_flux_sector',
-'tail_map', 'asy_summary_plots')
+'tail_map', 'asy_summary_plots', 'pplot_boundary', 'pplot_boundaries')
 
 if __name__ == '__main__':
 	from cls.adc import Galaxy

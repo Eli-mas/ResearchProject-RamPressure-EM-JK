@@ -24,7 +24,7 @@ sim_back_cutoff={'x':1,'y':2}#{'x':.24,'y':.24}
 deg=u'\N{DEGREE SIGN}'
 
 deny_m2_high_i=False
-high_i_threshold=75 #i>75 --> high inclination
+high_i_threshold = HIGH_I_THRESHOLD = 75 #i>75 --> high inclination
 
 sig_ext_cutoff=1.2
 sig_flux_cutoff=.1#.05
@@ -42,6 +42,6 @@ __all__=('nan', 'tau','al','a2l','ahl','a1hl','aql','deg_to_rad',
 'rad_to_deg','deg_to_index','index_to_deg','rad_to_index','index_to_rad',
 'sim_back_cutoff','deg','deny_m2_high_i','high_i_threshold','sig_ext_cutoff',
 'sig_flux_cutoff','sig_m1_m2_ext_cutoff','sig_m1_m2_flux_cutoff','sig_angle_cutoff',
-'INC_CUTOFFS','ASY_CUTOFFS')
+'INC_CUTOFFS','ASY_CUTOFFS', 'HIGH_I_THRESHOLD')
 
 

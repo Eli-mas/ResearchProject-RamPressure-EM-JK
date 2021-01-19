@@ -25,6 +25,8 @@ from comp.computation_functions import (ellipse, c_to_p, reindex, p_to_c,
 
 from plot.plotting_functions import hline, vline, ax_0N, test_fig_save, full_legend, create_hidden_axis#, fig_size_save
 
+from common.decorators import add_doc_constants
+
 def max_ratio_locate(f_set,m,type,pr=False):
 	"""Return max-ratio and maximizing angles given a ratio set with
 	angles included. `f_set` assumed to be 2-dimensional with angles,
@@ -415,15 +417,16 @@ def digitize_outer_flux(Ginstance,return_data=False,test=False,rweight=False):
 		Ginstance.nc_f_per_t = nc_f_per_t
 	#if return_data: return nc_f_per_t
 
+@add_doc_constants(globals(), 'a2l')
 def get_galaxy_inner_regions(Ginstance):
 	"""Compute flux, and (theta, radius) coordinates for all inner pixels.
 	
 	Specifically, generate these arrays:
 		center_f (flux)
-		center_t (theta)
-		center_r (radius)
-		center_t_int (theta rounded to integers)
-		c_f_per_t (flux digitized over integral theta bins)
+		center_t (theta, radians)
+		center_r (radius, pixels)
+		center_t_int (theta indices, integers)
+		c_f_per_t (flux digitized over integral theta bins, size=a2l)
 	"""
 	#print 'TEST: inside get_galaxy_inner_regions'
 	total_t_int_tsort,total_r_tsort, total_f_tsort, total_t_tsort, total_f_per_t=\
@@ -451,7 +454,9 @@ def get_galaxy_inner_regions(Ginstance):
 	"""
 
 def correct_for_beam_smearing_new(r, d_beam_arcsec, mult=1, expand=False, plot=False):#1.1#1.4
-	"""as it is used, r=extentlist_graph[:,1]"""
+	"""Correct a radius (expressed in arcsec) for beam smearing.
+	
+	As it is used, r=extentlist_graph[:,1]"""
 	r_beam_arcsec=d_beam_arcsec/2
 	
 	"""asymmetry_functions_adc_non_decommented_02_19_15.py contains commented-out former formula"""
@@ -461,17 +466,19 @@ def correct_for_beam_smearing_new(r, d_beam_arcsec, mult=1, expand=False, plot=F
 		plt.show()
 	return quadrature_sub(r, mult * r_beam_arcsec)
 
-def get_beam_corrected_extentlist(Ginstance,plot=False):
+def get_beam_corrected_extentlist(Ginstance, plot=False):
 	"""
 	Correct for beam effects by applying
 	`correct_for_beam_smearing_new` to the `extentlist_graph`
 	attribute, establishing `extentlist_graph_corrected`.
 	"""
 	if Ginstance.is_real:
-		beam=ellipse(a=Ginstance.beam_d1,b=Ginstance.beam_d2,PA=Ginstance.beam_PA,inclination=0,d_beam_arcsec=None)
-		beam=reindex(beam,ahl,axis=1)
-		beam_diameter=beam[1]
-	else: beam_diameter=Ginstance.d_beam_arcsec
+		beam = ellipse(a=Ginstance.beam_d1, b=Ginstance.beam_d2, PA=Ginstance.beam_PA,
+					   inclination=0, d_beam_arcsec=None)
+		beam = reindex(beam, ahl, axis=1)
+		beam_diameter = beam[1]
+	else:
+		beam_diameter=Ginstance.d_beam_arcsec
 	
 	extentlist_graph=Ginstance.extentlist_graph
 	extentlist_graph_corrected=np.column_stack((
@@ -565,11 +572,13 @@ def ratio_angle_calc(Ginstance, rweight=False, trig=False):
 def get_deprojected_extentlist(Ginstance):
 	"""Get a deprojected version of the extentlist array."""
 	d_beam_arcsec,extentlist_graph,inclination,PA,extentlist_graph_corrected=\
-	Ginstance.getattrs('d_beam_arcsec','extentlist_graph','inclination','PA','extentlist_graph_corrected')
+	Ginstance.getattrs('d_beam_arcsec', 'extentlist_graph', 'inclination',
+					   'PA', 'extentlist_graph_corrected')
 	
 	egda=np.column_stack(
-		(extentlist_graph[:,0],)+
-		deproject_graph(extentlist_graph[:,0],extentlist_graph_corrected[:,1],inclination,PA)
+		(extentlist_graph[:,0],) +
+		deproject_graph(extentlist_graph[:,0], extentlist_graph_corrected[:,1],
+						inclination, PA)
 	)
 	#egda[:,0]=egda[:,0]%a2l
 	Ginstance.extentlist_graph_deproject=egda
@@ -585,12 +594,21 @@ def get_m2_ext_quantities(Ginstance):#,newcheck=True
 		#Ginstance.m2ext_data=nan
 		return
 	#get_deprojected_extentlist(Ginstance)
-	egda=Ginstance.extentlist_graph_deproject
-	m2ext_avgs=np.array([np.average(egda[np.concatenate([i+np.arange(-aql,aql),i+al+np.arange(-aql,aql)])%a2l,1]) for i in range_a2l])#_new
-	m2avg_min=np.min(m2ext_avgs)
-	m2avg_max=np.max(m2ext_avgs)
-	Ginstance.m2mM=np.array([m2avg_min,m2avg_max])
-	Ginstance.m2ext_avgs=m2ext_avgs
+	egda = Ginstance.extentlist_graph_deproject
+	m2ext_avgs = np.array([
+		np.average(egda[
+			np.concatenate([
+				i+np.arange(-aql,aql),
+				i+al+np.arange(-aql,aql)
+			])%a2l, # indices of opposing quadrants centered on each angle and opposing angle
+			1 # column 1
+		])
+		for i in range_a2l
+	])#_new
+	m2avg_min = np.min(m2ext_avgs)
+	m2avg_max = np.max(m2ext_avgs)
+	Ginstance.m2mM = np.array([m2avg_min, m2avg_max])
+	Ginstance.m2ext_avgs = m2ext_avgs
 
 def get_m2_inner_boundary(Ginstance):
 	"""Get the m=2 inner boundary, expressed in projected radii."""
@@ -599,20 +617,21 @@ def get_m2_inner_boundary(Ginstance):
 		return
 	
 	#get_m2_ext_quantities(Ginstance)
-	inclination,PA,d_beam_arcsec,pix_scale_arcsec,total_t_int_tsort,total_r_tsort=\
+	inclination, PA, d_beam_arcsec, pix_scale_arcsec, total_t_int_tsort, total_r_tsort=\
 	Ginstance.getattrs(
 		'inclination','PA','d_beam_arcsec','pix_scale_arcsec','total_t_int_tsort','total_r_tsort'
 	)
-	m2avg_min=Ginstance.m2mM[0]
-	m2ie_angles,m2ie_radii = ellipse(m2avg_min,d_beam_arcsec,inclination,PA,m2=True)
+	m2avg_min = Ginstance.m2mM[0]
+	m2ie_angles, m2ie_radii = ellipse(m2avg_min, d_beam_arcsec, inclination,
+									  PA, m2=True)
 	# if beam_correction: m2ie_radii=correct_for_beam_smearing_new(m2ie_radii,d_beam_arcsec,expand=True)
 	# NO: we don't recorrect the ellipse
-	m2interior_edge = np.column_stack((m2ie_angles,m2ie_radii))
+	m2interior_edge = np.column_stack((m2ie_angles, m2ie_radii))
 	m2interior_edge[:,0] *= tau/360
-	m2interior_edge = m2interior_edge[np.arange(a2l+1)%a2l]
-	Ginstance.m2interior_edge = reindex(m2interior_edge,ahl)
+	m2interior_edge = m2interior_edge[np.arange(a2l+1) % a2l]
+	Ginstance.m2interior_edge = reindex(m2interior_edge, ahl)
 	
-	m2inedge_ar = reindex(m2ie_radii/pix_scale_arcsec,ahl)
+	m2inedge_ar = reindex(m2ie_radii/pix_scale_arcsec, ahl)
 	m2inedge_ar_per_pixel = m2inedge_ar[total_t_int_tsort]
 	m2inner_pixel_cond = total_r_tsort <= m2inedge_ar_per_pixel
 	
@@ -631,36 +650,56 @@ def get_m2_inner_boundary(Ginstance):
 # 	for i in m2center_t_int_vals: m2c_f_per_t[i]=np.sum(m2center_f[np.where(m2center_t_int==i)[0]])
 # 	"""
 
-def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck=False
+def get_m2_noncenter_data(Ginstance, check_wrongside=True, test=False):#,newcheck=False
 	"""Compute the raw flux arrays used for computing m=2 quantities.
 	Includes `m2nc_f_per_t` (theta-digitized m=2 outer flux) and
 	'qofs' = the version of this smoothed by 90 degrees.
 	Returned in the order (qofs, m2nc_f_per_t).
 	"""
 	filename=Ginstance.filename
-	total_t_int_tsort,total_f_tsort,total_r_tsort=Ginstance.getattrs('total_t_int_tsort','total_f_tsort','total_r_tsort')
-	m2inner_pixel_cond,m2inedge_ar,m2inedge_ar_per_pixel=get_m2_inner_boundary(Ginstance)
-	m2outer_pixel_cond=~m2inner_pixel_cond
-	#m2noncenter_t_int,m2noncenter_t,m2noncenter_r,m2noncenter_f=[ar[~m2inner_pixel_cond] for ar in (total_t_int_tsort,total_t_tsort,total_r_tsort,total_f_tsort)]
-	m2noncenter_t_int,m2noncenter_f=[ar[m2outer_pixel_cond] for ar in (total_t_int_tsort,total_f_tsort)]
-	#m2noncenter_t,m2noncenter_r=[ar[~m2inner_pixel_cond] for ar in (total_t_tsort,total_r_tsort)]
-	#m2noncenter_ar=total_ar_tsort[~m2inner_pixel_cond].astype('int')
-	m2nc_f_per_t=np.zeros(a2l)
-	m2noncenter_t_int_vals=np.unique(m2noncenter_t_int).astype(int)
-	m2nc_f_per_t[m2noncenter_t_int_vals]=[np.sum(m2noncenter_f[np.where(m2noncenter_t_int==i)[0]]) for i in m2noncenter_t_int_vals]
+	total_t_int_tsort, total_f_tsort, total_r_tsort = \
+		Ginstance.getattrs('total_t_int_tsort', 'total_f_tsort', 'total_r_tsort')
+	"""notes:
+		* the third variable returned is m2inedge_ar_per_pixel
+		* `m2inedge_ar` is 1-d and only holds radii;
+		  these radii are projected, NOT deprojected, and form an ellipse
+		* m2inner_pixel_cond, m2inedge_ar_per_pixel are t-sorted
+		  and contain data for all pixels
+		* m2inner_pixel_cond tells whether the pixel is in the inner m=2 region
+	"""
+	m2inner_pixel_cond, m2inedge_ar, _ = \
+		get_m2_inner_boundary(Ginstance) #
+	m2outer_pixel_cond = ~m2inner_pixel_cond
+	m2noncenter_t_int, m2noncenter_f = [
+		ar[m2outer_pixel_cond]
+		for ar in (total_t_int_tsort, total_f_tsort)
+	]
+	del m2outer_pixel_cond # not used hereforth
+	
+	m2nc_f_per_t = np.zeros(a2l)
+	m2noncenter_t_int_vals = np.unique(m2noncenter_t_int).astype(int)
+	m2nc_f_per_t[m2noncenter_t_int_vals] = [
+		np.sum(m2noncenter_f[np.where(m2noncenter_t_int == i)[0]])
+		for i in m2noncenter_t_int_vals
+	] # definitely a more efficient way to do this
+	
 	#if not check_wrongside:
 	#	plt.plot(m2nc_f_per_t)
 	#	plt.show()
 	
 	# now the fun part
 	if check_wrongside:
-		pl_compare=Ginstance.plot_list_adjust[:,1]
-		#if newcheck: 
-		#else: pl_compare=reindex(Ginstance.plot_list_adjust[:,1],ahl)
-		#print 'm2 wrongside pl check:',np.allclose(pl_compare,pl_compare_new)
-		m2ie_pl_dif=pl_compare-m2inedge_ar
-		wrongside_pixels_possible=np.sum(m2ie_pl_dif<0)
+		pl_compare = Ginstance.plot_list_adjust[:,1]
+		m2ie_pl_dif = pl_compare - m2inedge_ar
+		
+		# if newcheck: 
+		# else: pl_compare=reindex(Ginstance.plot_list_adjust[:,1],ahl)
+		# print 'm2 wrongside pl check:',np.allclose(pl_compare,pl_compare_new)
+		
+		wrongside_pixels_possible = np.any(m2ie_pl_dif<0)
+		
 		if wrongside_pixels_possible:
+# 			print('get_m2_noncenter_data: calculting m=2 data')
 			"""
 			new way of getting the pixels:
 			get theta,radii where inner boundary is beyond outer boundary
@@ -679,81 +718,112 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 					do the above for all unique y values in the outer boundary
 			"""
 			
-			wrongside_base=(m2ie_pl_dif<=0)
+			wrongside_base = (m2ie_pl_dif<=0)
 			
-			wrongside_region_inds=get_region_inds(wrongside_base)
+			wrongside_region_inds = get_region_inds(wrongside_base)
 			"""
-			a list of arrays
-				each array in the list contains indices of pixels
+			wrongside_region_inds:
+				A list of arrays, where each array contains indices of pixels
 			
-			each array is azimuthally disconnected with all others (if any),
-				while the pixels in any given array are considered part of the same region
-				as all pixels in the array
+			Each array is azimuthally isolated from all others (if any);
+				the pixels in any given array are all part of the same region
 			"""
 			
-			#wrongside_buondary_x,wrongside_boundary_y
+			total_t_tsort, PA,inclination, pix_scale_arcsec = Ginstance.getattrs(
+				'total_t_tsort', 'PA','inclination','pix_scale_arcsec')
 			
-			total_t_tsort=Ginstance.total_t_tsort
-			PA,inclination,pix_scale_arcsec=Ginstance.getattrs('PA','inclination','pix_scale_arcsec')
-			total_rd_tsort=deproject_graph(total_t_tsort*rad_to_deg,total_r_tsort,inclination,PA)[0]
+			# total_rd_tsort = all deprojected radii, sorted by angle
+			total_rd_tsort = deproject_graph(total_t_tsort * rad_to_deg,
+											 total_r_tsort, inclination, PA)[0]
 			
-			wrongside_cond=wrongside_base[total_t_int_tsort]
-			wrongside_theta_int=total_t_int_tsort[wrongside_cond]
-			wrongside_radii=total_r_tsort[wrongside_cond]
-			wrongside_radii_deproject=total_rd_tsort[wrongside_cond]
-			wrongside_theta=total_t_tsort[wrongside_cond]
+			# align the wrongside boolean values with the t-sorted arrays:
+			# index it using the t-sorted array of digitized theta indices
+			wrongside_cond = wrongside_base[total_t_int_tsort]
+			# now get relevant quantities
+# 			wrongside_theta_int = total_t_int_tsort[wrongside_cond]
+			wrongside_radii = total_r_tsort[wrongside_cond]
+			wrongside_radii_deproject = total_rd_tsort[wrongside_cond]
+# 			wrongside_theta = total_t_tsort[wrongside_cond]
 			
-			m2_ie=np.column_stack((np.linspace(0,tau,a2l,endpoint=False),m2inedge_ar))
-			pl_c=np.column_stack((np.linspace(0,tau,a2l,endpoint=False),pl_compare))
-			xpix,ypix=Ginstance.xpix,Ginstance.ypix
+			# m=2 interior edge: columns = (theta, radii)
+			m2_ie = np.column_stack((
+				np.linspace(0, tau, a2l, endpoint=False),
+				m2inedge_ar
+			))
+			# m=2 outer boundary: columns = (theta, radii)
+			pl_c = np.column_stack((
+				np.linspace(0, tau, a2l, endpoint=False),
+				pl_compare
+			))
+			
+			xpix, ypix = Ginstance.xpix, Ginstance.ypix
 			wrongside_boundaries=(
-				np.row_stack((m2_ie[inds],pl_c[inds][::-1]))
+				np.row_stack((m2_ie[inds], pl_c[inds][::-1]))
 				for inds in wrongside_region_inds
-				if inds.shape[0]>=1
+				if inds.shape[0] >= 1
 			)
+# 			print(f'{Ginstance.filename}: wrongside_boundaries:',
+# 				[np.row_stack((m2_ie[inds], pl_c[inds][::-1]))
+# 				for inds in wrongside_region_inds
+# 				if inds.shape[0] >= 1]
+# 			, sep='\n')
 			"""
 			`wrongside_boundaries`: iterable of arrays
-				each array consists of (theta,radius) pairs
-				these define the boundary of the wrongside pixels in this region
+				each array has two columns, (theta, radius),
+				defining the boundary of the wrongside pixels in this region
+				
+				A good question is why pl_c[inds] is reversed with the [::-1]
+				index; frankly I don't remember, but I'm strongly guessing it
+				has to do with the `points_in_container` function requiring
+				that the pixels be listed in the order in which they trace out
+				the polygon they define.
 			"""
-			wrongside_boundaries=tuple(
-				ar[np.arange(ar.shape[0]+1)%ar.shape[0]]
+			wrongside_boundaries = tuple(
+				ar[np.arange(ar.shape[0]+1) % ar.shape[0]]
 				for ar in wrongside_boundaries
 			)
 			"""
-			extend `wrongside_boundaries` so that the last pair is equal to the first pair
+			extends each array in `wrongside_boundaries`
+			so that the last pair is equal to the first pair
+			
+			This is again for the sake of the `points_in_container`
+			function receiving pixels that describe a closed polygon.
 			"""
 			wrongside_boundaries_xy=tuple(
 				np.column_stack(p_to_c(*ar.T,xc=xpix,yc=ypix))
 				for ar in wrongside_boundaries
 			)
 			"""
-			wrongside_boundaries_xy: convert (t,r) in `wrongside_boundaries` to (x,y)
+			wrongside_boundaries_xy:
+			convert (t,r) coors in `wrongside_boundaries` to (x,y) coors
 			"""
-			wrongside_pixel_groups=tuple(
+			wrongside_pixel_groups = tuple(
 				points_in_container(c=xy,p=get_grid_xy(x=xy[:,0],y=xy[:,1]))
 				for xy in wrongside_boundaries_xy
 			)
 			"""
 			wrongside_pixel_groups: tuple of arrays
-				each array contains the points (as [x,y] pairs) within the polygon defined by
-				the corresponding array in `wrongside_boundaries_xy`
-				uses matplotlib's Path functionality
+				each array contains the points (as [x,y] pairs) within
+				the polygon defined by the corresponding array in
+				`wrongside_boundaries_xy`; uses matplotlib's Path functionality
 			"""
 			#wrongside_pixel
 			
 			zdata=Ginstance.zdata
-			total_rd_rdsort,total_f_rdsort=sort_arrays_by_array(total_rd_tsort,(total_rd_tsort,total_f_tsort))
+			total_rd_rdsort, total_f_rdsort = sort_arrays_by_array(
+				total_rd_tsort,
+				(total_rd_tsort, total_f_tsort)
+			)
 			for xy in wrongside_pixel_groups:
 				#t,r=c_to_p(xy[:,0],xy[:,1],xpix,ypix)
 				#xy=xy/pix_scale_arcsec
 				#ax.scatter(tz,r,c=zdata[xy[:,1],xy[:,0]])
-				x,y=xy[:,0],xy[:,1]
+				x, y = xy[:,0], xy[:,1]
 				#fx,fy=(xpix+xpix-xy[:,0]).round().astype(int),(ypix+ypix-xy[:,1]).round().astype(int)
 				#fsub=zdata[fy,fx]
-				theta,radii=c_to_p(x,y,xpix,ypix)
+				theta, radii = c_to_p(x, y, xpix, ypix)
 				"""t and r of all pixels in the given wrongside group"""
-				radii_deproject=deproject_graph(theta,radii,inclination,PA)[0]
+				radii_deproject = deproject_graph(theta, radii, inclination, PA)[0]
 				"""
 				`radii_deproject`: deprojected radii of all pixels in the given wrongside group
 				"""
@@ -767,14 +837,16 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 				ax.plot(theta,radii_deproject,'r*')
 				plt.show()"""
 				
-				
-				wrongside_rd_low_high_inds=np.array([
-					np.searchsorted( total_rd_rdsort , radii+r_ , side)
-					for r_,side in zip([-.5,.5],('left','right'))
+				# for each radius value: capture start, end indices of the region
+				# within total_rd_rdsort referencing all pixels having deprojected
+				# radius within +/- .5 pixel distance of the radius value
+				wrongside_rd_low_high_inds = np.array([
+					np.searchsorted( total_rd_rdsort , radii_deproject + r_ , side )
+					for r_, side in zip([-.5, .5], ('left', 'right'))
 				]).T
 				"""
 				`wrongside_rd_low_high_inds`: array with two columns of indices
-					indices refer to positions apropos `total_rd_rdsort`
+					indices refer to positions within `total_rd_rdsort`
 					first column contains the lowest indices where pixels can be found
 						with radii (.5 pixel distance) less than corresponding radii
 						in `radii_deproject`
@@ -782,16 +854,20 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 						with radii (.5 pixel distance) greater than corresponding radii
 						in `radii_deproject`
 				"""
-				wrongside_radii_avg_flux=np.array(tuple(np.average(total_f_rdsort[low:high]) for low,high in wrongside_rd_low_high_inds))
+				wrongside_radii_avg_flux = np.array(tuple(
+					np.average(total_f_rdsort[low:high])
+					for low,high in wrongside_rd_low_high_inds
+				))
 				"""
 				`wrongside_radii_avg_flux`: 1-d array
 					for every radius in radii_deproject,
-					the average flux at all pixels within +-.5 pixel distance of this radius
+					the average flux at all pixels within +-.5 pixel distance
+					(deprojected) of this radius
 				"""
 				
-				theta_int=np.round(theta*rad_to_index).astype(int)
+				theta_int = np.round(theta * rad_to_index).astype(int)
 				"""rounded theta values of all pixels in the given wrongside group"""
-				t_int_vals=np.unique(theta_int)
+				t_int_vals = np.unique(theta_int)
 				""""print 't_int_vals'
 				print t_int_vals
 				print 't_int_vals results'
@@ -802,12 +878,12 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 				print 'addend'
 				print m2nc_f_per_t[t_int_vals]"""
 				
-				
-				
-				m2nc_f_per_t[t_int_vals]-=tuple(
-					np.average(wrongside_radii_avg_flux[theta_int==i])
+				m2nc_f_per_t[t_int_vals] -= tuple(
+					np.average(wrongside_radii_avg_flux[theta_int == i])
 					for i in t_int_vals
 				)
+				
+				
 			if test:
 				"""
 				for xy in wrongside_pixel_groups:
@@ -824,18 +900,27 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 					plt.plot(*b.T)#,ls='none',marker='+',markersize=10
 					#print b
 				#plt.title(noregion)
-				test_fig_save(filename+'/'+filename+' m2 wrong pixel regions cartesian','m2 wrongside process',clf=True)
-				ax=ax_0N()
+				test_fig_save(
+					filename + '/' + filename + ' m2 wrong pixel regions cartesian',
+					'm2 wrongside process',
+					clf=True
+				)
+				ax = ax_0N()
 				ax.plot(*m2_ie.T,c='k',label='inner')
 				ax.plot(*pl_c.T,c=outer_HI_color,label='outer')
 				for inds in wrongside_region_inds:
-					ax.fill_between(m2_ie[inds,0],m2inedge_ar[inds],pl_compare[inds],color=pos_shading)
-				test_fig_save(filename+'/'+filename+' m2 wrong pixel regions','m2 wrongside process',clf=True)
+					ax.fill_between(m2_ie[inds,0], m2inedge_ar[inds],
+									pl_compare[inds], color = pos_shading)
+				test_fig_save(
+					filename + '/' + filename + ' m2 wrong pixel regions',
+					'm2 wrongside process',
+					clf=True
+				)
 				#plt.show()
 				""""""
 				#return
-				zmax=np.max(zdata)
-				print('zmax',zmax)
+				zmax = np.max(zdata)
+				print('zmax', zmax)
 				#THE FOLLOWING IS WRONG
 				"""fig,axes=plt.subplots(1,2,subplot_kw=(dict(polar=True)))
 				axes=np.array(axes.flat)
@@ -861,7 +946,7 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 					#ax.plot(*(tuple(pl_c[wrongside_base].T)+('g*',)),zorder=2)
 					ax.set_ylim(0,Ginstance.edge_radius/pix_scale_arcsec)"""
 				#USE THIS INSTEAD
-				ax=ax_0N()
+				ax = ax_0N()
 				ax.figure.set_size_inches(13,8)
 				axi=create_hidden_axis(ax)
 				for xy in wrongside_pixel_groups:
@@ -876,7 +961,11 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 				axi.plot(*p_to_c(*pl_c.T,xc=xpix,yc=ypix))
 				#ax.plot(*m2_ie.T,zorder=1)
 				#ax.plot(*pl_c.T,zorder=1)
-				test_fig_save(filename+'/'+filename+' m2 wrong pixels','m2 wrongside process',clf=True)
+				test_fig_save(
+					filename + '/' + filename + ' m2 wrong pixels',
+					'm2 wrongside process',
+					clf=True
+				)
 				#plt.show()
 				
 				"""plt.scatter(*p_to_c(m2_ie[:,0][wrongside_base],m2_ie[:,1][wrongside_base],xpix,ypix),marker='+',c='r')
@@ -890,72 +979,81 @@ def get_m2_noncenter_data(Ginstance,check_wrongside=False,test=False):#,newcheck
 				plt.legend()
 				plt.show()"""
 	
-	quadrant_outer_flux_set=rolling_sum_wrap(m2nc_f_per_t,aql)
+	quadrant_outer_flux_set = rolling_sum_wrap(m2nc_f_per_t, aql)
 	
 	"""assertion tests in asymmetry_functions_adc_non_decommented_02_19_15.py"""
 	
-	return quadrant_outer_flux_set,m2nc_f_per_t
+	return quadrant_outer_flux_set, m2nc_f_per_t
 
-def get_m2_flux_arrays(Ginstance,check_wrongside=True,test=False,mode=1,return_full=False):
+def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, return_full=False):
 	"""
 	Compute flux data for m=2. Also compute the m=2 weights.
 	`mode` parameter determines how weights are computed (1-->extent, 0-->flux).
 	"""
-	totalflux=Ginstance.totalflux
-	qofs,m2nc_f_per_t=get_m2_noncenter_data(Ginstance,check_wrongside=check_wrongside,test=test)
+	totalflux = Ginstance.totalflux
+	qofs, m2nc_f_per_t = get_m2_noncenter_data(
+		Ginstance, check_wrongside = check_wrongside, test = test
+	)
 	
 	if mode==0:
 		qdata=qofs
-		abcd_rows=complex_reindex_2d(np.broadcast_to(qdata,[4,a2l]),(0,al,ahl,a1hl),axis=1)
-		#a_all,b_all,c_all,d_all=qdata[(range_a2l.reshape(a2l,1)+).T%a2l]
-		#ABCD_all=a_all+b_all+c_all+d_all
-		a_b,c_d=abcd_rows[:2],abcd_rows[2:]
+		abcd_rows = complex_reindex_2d(
+			np.broadcast_to(qdata, [4, a2l]),
+			(0, al, ahl, a1hl),
+			axis = 1
+		)
+		# a_all,b_all,c_all,d_all=qdata[(range_a2l.reshape(a2l,1)+).T%a2l]
+		# ABCD_all=a_all+b_all+c_all+d_all
+		a_b, c_d=abcd_rows[:2], abcd_rows[2:]
 		
-		a_b_sum,c_d_sum=np.sum(a_b,axis=0),np.sum(c_d,axis=0)
-		abcd_sum=np.sum(abcd_rows,axis=0)#ABCD_all
+		a_b_sum, c_d_sum = np.sum(a_b, axis=0), np.sum(c_d, axis=0)
+		abcd_sum = np.sum(abcd_rows, axis=0)#ABCD_all
 		#m2_weights=((a_b_sum*a_b_min)+(c_d_sum*c_d_min))/abcd_sum
 		#a_b_min=np.minimum(np.divide(*a_b),np.divide(*a_b[::-1]))
 		#c_d_min=np.minimum(np.divide(*c_d),np.divide(*c_d[::-1]))
-		a_b_dif=np.abs(np.diff(a_b,axis=0)).squeeze()
-		c_d_dif=np.abs(np.diff(c_d,axis=0)).squeeze()
-		w_ab=1-(a_b_dif/abcd_sum)
-		w_cd=1-(c_d_dif/abcd_sum)
-		w_ab[w_ab<0]=0
-		w_cd[w_cd<0]=0
-		m2_weights=w_ab*w_cd
-		m2_fluxscore_unweighted=(a_b_sum-c_d_sum)/totalflux
-		m2flux_weighted_all=m2_weights*m2_fluxscore_unweighted
+		a_b_dif = np.abs(np.diff(a_b,axis=0)).squeeze()
+		c_d_dif = np.abs(np.diff(c_d,axis=0)).squeeze()
+		w_ab = 1 - (a_b_dif / abcd_sum)
+		w_cd = 1 - (c_d_dif / abcd_sum)
+		w_ab[w_ab<0] = 0
+		w_cd[w_cd<0] = 0
+		m2_weights = w_ab*w_cd
+		m2_fluxscore_unweighted = (a_b_sum - c_d_sum) / totalflux
+		m2flux_weighted_all = m2_weights * m2_fluxscore_unweighted
 		
-		lambda_AB=znan(w_ab,remove_nan=True,inplace=True)
-		lambda_CD=znan(w_cd,remove_nan=True,inplace=True)
-		abcd_stack=abcd_rows.T
+		lambda_AB = znan(w_ab, remove_nan=True, inplace=True)
+		lambda_CD = znan(w_cd, remove_nan=True, inplace=True)
+		abcd_stack = abcd_rows.T
+		ABCD = None
 	
 	elif mode==1:
-		qdata=rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1],aql)
-		a_all,b_all,c_all,d_all=qdata[(range_a2l.reshape(a2l,1)+(0,al,ahl,a1hl)).T%a2l]
-		A_all,B_all=np.minimum(a_all,b_all),np.maximum(a_all,b_all)
-		C_all,D_all=np.minimum(c_all,d_all),np.maximum(c_all,d_all)
-		rsw_all,wsw_all=.5*A_all/B_all,.5*C_all/D_all
-		m2_weights=rsw_all+wsw_all
+		qdata = rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1], aql)
+		a_all, b_all, c_all, d_all = \
+			qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]
+		A_all, B_all = np.minimum(a_all, b_all), np.maximum(a_all, b_all)
+		C_all, D_all = np.minimum(c_all, d_all), np.maximum(c_all, d_all)
+		rsw_all, wsw_all = .5 * A_all / B_all, .5 * C_all / D_all
+		m2_weights = rsw_all + wsw_all
 		
-		qflux=qofs[(range_a2l.reshape(1,a2l)+np.vstack((0,al,ahl,a1hl)))%a2l]
-		m2_fluxscore_unweighted=(qflux[:2].sum(0)-(qflux[2:].sum(0)))/totalflux
-		m2flux_weighted_all=m2_weights*m2_fluxscore_unweighted
-		abcd_stack=np.column_stack((a_all,b_all,c_all,d_all))
+		qflux = qofs[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
+		m2_fluxscore_unweighted = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
+		m2flux_weighted_all = m2_weights * m2_fluxscore_unweighted
+		abcd_stack = np.column_stack((a_all, b_all, c_all, d_all))
 		
-		lambda_AB=lambda_CD=None
+		lambda_AB = lambda_CD = None
+		ABCD = np.column_stack([A_all, B_all, C_all, D_all])
 	
 	if test or return_full: return (
-		m2flux_weighted_all,m2_weights,
-		m2_fluxscore_unweighted,m2nc_f_per_t,qdata,
-		abcd_stack,
-		np.column_stack((lambda_AB,lambda_CD))
+		m2flux_weighted_all, m2_weights,
+		m2_fluxscore_unweighted, m2nc_f_per_t, qdata,
+		abcd_stack, ABCD,
+		np.column_stack((lambda_AB, lambda_CD))
 	)
 	
-	return m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted
+	return m2flux_weighted_all, m2_weights, m2_fluxscore_unweighted
 
 @add_doc(get_m2_flux_arrays)
-def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
+def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1, pr=False):
 	"""
 	Compute m=2 quantities. `test` can be set to True to generate
 	plots that show the stages of the calculation, in which case
@@ -964,7 +1062,7 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 	
 	Defers to `get_m2_flux_arrays`.
 	"""
-	if deny_m2_high_i and Ginstance.inclination>high_i_threshold:
+	if deny_m2_high_i and Ginstance.inclination > high_i_threshold:
 		Ginstance.m2score_ar=nan
 		Ginstance.m2ER=nan
 		
@@ -983,50 +1081,73 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 		thus the extents along the angles specified in these arrays
 			correspond to the asymmetry plots
 	"""
-	filename,PA,pix_scale_arcsec=Ginstance.getattrs('filename','PA','pix_scale_arcsec')
+	filename, PA, pix_scale_arcsec = \
+		Ginstance.getattrs('filename', 'PA', 'pix_scale_arcsec')
 	#if test or check_wrongside: print('<><> m2 check here <><>')
 	if test:
-		m2flux_weighted_all_new,m2_weights_new,m2_fluxscore_unweighted_new,m2nc_f_per_t_new,qofs_new,abcd_new,gammas_new=get_m2_flux_arrays(Ginstance,check_wrongside=True,test=True,mode=mode)
-		m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted,m2nc_f_per_t,qofs,abcd,gammas=get_m2_flux_arrays(Ginstance,check_wrongside=False,mode=mode,return_full=True)
+		m2flux_weighted_all_new, m2_weights_new, m2_fluxscore_unweighted_new, \
+			m2nc_f_per_t_new, qofs_new, abcd_new, ABCD_new, gammas_new = \
+				get_m2_flux_arrays(Ginstance, check_wrongside=True,
+								   test=True, mode=mode)
+		m2flux_weighted_all, m2_weights, m2_fluxscore_unweighted, \
+			m2nc_f_per_t, qofs, abcd, ABCD, gammas = \
+				get_m2_flux_arrays(Ginstance, check_wrongside=False,
+								   mode=mode, return_full=True)
 		i=1
-		for ar in ('m2nc_f_per_t','qofs','abcd','gammas','m2_weights','m2_fluxscore_unweighted','m2flux_weighted_all'):
-			if mode==1 and ar in ('m2nc_f_per_t','qofs','gammas'): continue
-			lines=plt.plot(np.linspace(0,360,a2l),eval(ar))
-			lines.extend(plt.plot(np.linspace(0,360,a2l),eval(ar+'_new'),ls='--'))
-			if ar=='abcd' or ar=='gammas':
+		for ar in ('m2nc_f_per_t', 'qofs', 'abcd', 'ABCD', 'gammas', 'm2_weights',
+				   'm2_fluxscore_unweighted', 'm2flux_weighted_all'):
+			
+			if mode==1 and ar in ('qofs','gammas'): continue
+			
+			lines = plt.plot(np.linspace(0, 360, a2l), eval(ar))
+			lines.extend(plt.plot(np.linspace(0, 360, a2l), eval(ar + '_new'), ls='--'))
+			if ar in ('abcd', 'gammas', 'ABCD'):
 				ldiv=len(lines)//2
 				for l0,l1,char in zip(lines[:ldiv],lines[ldiv:],ar):
 					l1.set_color(l0.get_color())
-					if ar[0]=='a': l0.set_label(char)
-			if ar[0]=='a':
-				plt.legend()
-				if mode==0: hline(0,ls=':')
-			plt.xticks(np.arange(0,405,45))
+					if ar[0].lower()=='a': l0.set_label(char)
+			ax = plt.gca()
+			if ar=='abcd':
+				if mode==0:
+					hline(0,ls=':')
+					plt.legend()
+			elif ar=='ABCD':
+				ax2 = plt.gca().twinx()
+				ax2.plot(range_a2l_deg, ABCD[:,0]/ABCD[:,1], c='y', ls=':', lw=2, label='A/B')
+				ax2.plot(range_a2l_deg, ABCD[:,2]/ABCD[:,3], c='purple', ls=':', lw=2, label='C/D')
+				ax2.plot(range_a2l_deg, m2_weights, c='k', ls='--', lw=3,
+						 label=r'w: $.5\times \frac{\frac{A}{B}(A+B)+\frac{C}{D}(C+D)}{A+B+C+D}$')
+				full_legend(ax2, ax)
+			plt.xticks(np.arange(0, 360 + 45, 45))
 			plt.title(filename+' '+ar)
-			plt.grid(True,axis='x')
-			test_fig_save(f'{filename}/{i} - {filename} plot__{ar}','m2 weighting process',f'mode={mode}',clf=True)
+			ax.grid(True, axis='x')
+			test_fig_save(f'{filename}/{i} - {filename} plot__{ar}',
+						  'm2 weighting process', f'mode={mode}', clf=True)
 			i+=1
 		
 		if mode==0 and False:
 			ax=plt.subplot(); ax2=ax.twinx()
-			ax.plot(np.linspace(0,360,a2l),gammas)
-			ax2.plot(np.linspace(0,360,a2l),gammas_new,ls='--')
-			ax.set_xticks(np.arange(0,405,45))
-			ax.grid(True,axis='x')
-			test_fig_save(filename+' plot__gammas dual axis','m2 weighting process','mode=%s'%mode,clf=True)
+			ax.plot(np.linspace(0, 360, a2l), gammas)
+			ax2.plot(np.linspace(0, 360, a2l), gammas_new, ls='--')
+			ax.set_xticks(np.arange(0, 360+45, 45))
+			ax.grid(True, axis='x')
+			test_fig_save(filename+' plot__gammas dual axis',
+						  'm2 weighting process', 'mode=%s'%mode, clf=True)
 		
 	elif check_wrongside:
-		m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted = get_m2_flux_arrays(Ginstance,check_wrongside=True)
+		m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted = \
+			get_m2_flux_arrays(Ginstance, check_wrongside=True)
 	else:
-		m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted = get_m2_flux_arrays(Ginstance,check_wrongside=True)
+		m2flux_weighted_all,m2_weights,m2_fluxscore_unweighted = \
+			get_m2_flux_arrays(Ginstance, check_wrongside=True)
 	
-	m2fluxscore = np.column_stack((range_a2l,m2flux_weighted_all))
-	m2ExtentFluxScore, m2flux_angles = max_ratio_locate(m2fluxscore,2,'flux',pr=pr)
+	m2fluxscore = np.column_stack((range_a2l, m2flux_weighted_all))
+	m2ExtentFluxScore, m2flux_angles = max_ratio_locate(m2fluxscore, 2, 'flux', pr=pr)
 	if pr: print('m2fluxscore', m2fluxscore, 'm2flux_angles', m2flux_angles, sep='\n')
 	m2fluxscore[:,0] *= index_to_deg
-	m2_FluxAngle = m2fluxscore[np.argmax(m2fluxscore[:,1]),0]
+	m2_FluxAngle = m2fluxscore[np.argmax(m2fluxscore[:,1]), 0]
 	
-	m2_ext_ratios=Ginstance.m2_ext_ratios
+	m2_ext_ratios = Ginstance.m2_ext_ratios
 	"""np.column_stack((
 		egda[:,0],
 		(
@@ -1036,7 +1157,10 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 		)
 	))"""
 	
-	m2_score = np.column_stack((m2_ext_ratios[:,0],rolling_gmean_wrap(m2_ext_ratios[:,1],aql)))
+	m2_score = np.column_stack((
+		m2_ext_ratios[:,0],
+		rolling_gmean_wrap(m2_ext_ratios[:,1], aql)
+	))
 	
 	m2_score_weight = np.column_stack((
 		m2_score[(range_a2l+ahl)%a2l,0],
@@ -1052,10 +1176,25 @@ def m2_calc(Ginstance,check_wrongside=True,test=False,mode=1,pr=False):
 	Ginstance.m2ext_angle=m2ext_angle
 	"""
 	
+	if test:
+		ax = plt.subplot()
+		ax.plot(*Ginstance.extentlist_graph_deproject[:,:2].T, 
+				label='deprojected extent', ls=':', c='k')
+		ax2 = ax.twinx()
+		ax2.plot(*m2_ext_ratios.T,
+				label='unsmoothed m=2 extent ratios', ls='--')
+		ax2.plot(range_a2l_deg, m2_score[:,1], ls='--',
+				 label='unweighted smoothed m=2 extent ratios')
+		ax2.plot(range_a2l_deg, m2_score_weight[:,1], ls='--',
+				 label='weighted smoothed m=2 extent ratios')
+		
+		full_legend(ax2, ax)
+		test_fig_save(f'{filename}/{i} - {filename} extent data',
+					  'm2 weighting process', f'mode={mode}', clf=True)
 	
 	Ginstance.m2score_ar = m2_score_weight
 	Ginstance.m2ER = ExtentScore_deproject_weighted
-	Ginstance.m2ext_angle = m2_score_weight[np.argmax(m2_score_weight[:,1]),0]
+	Ginstance.m2ext_angle = m2_score_weight[np.argmax(m2_score_weight[:,1]), 0]
 	""""""
 	Ginstance.m2fluxscore_ar = m2fluxscore
 	Ginstance.m2FR = m2ExtentFluxScore

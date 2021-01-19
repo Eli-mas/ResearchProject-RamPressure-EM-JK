@@ -1,5 +1,5 @@
 """The Galaxy class, the centerpiece of this module, is at the
-center of all computations performed for this project. It maintains
+core of all computations performed for this project. It maintains
 a list of attributes describing its gas distribution, from which
 relevant asymmetry quantities are calculated.
 
@@ -11,13 +11,26 @@ computed and set. This applies even when the attribute recursively
 depends on other such attributes; in this way, the class defines an
 architecture for automatically exploring the graph (tree) that
 defines the calculation dependencies of any given attribute.
-_Galaxy never has to be accessed directly."""
+_Galaxy never has to be accessed directly.
+
+The Galaxy class knows how to compute data from scratch by calling
+relevant methods. It also communicates with the h5py interface to
+load data from disk when recomputing it is not required. By default,
+Galaxy instances are set to load rather than compute data; an argument
+passed to the constructor (compute=True) can change this.
+
+If reload=True is passed to the constructor, the Galaxy will also
+regenerate the most fundamental data (e.g. coordinates, moment-0 map)
+from scratch, and sets the `compute` attribute to True. The default is
+False. The `compute` parameter may still be set True when `reload` is False.
+This allows for changing the definitions of certain quantities computed
+from the underlying raw data without having to regenerate the raw data."""
 
 from multiprocessing import Pool, cpu_count
 import numpy as np
 from matplotlib import pyplot as plt
 
-from common import MultiIterator, getattrs, print_update, consume
+from common import getattrs, print_update, consume, reparse, MultiIterator
 from common.decorators import add_doc
 
 from core import AttributeAbsent
@@ -284,7 +297,25 @@ class _Galaxy:
 		    except AttributeAbsent as e:
 		    	pass
 	
-	
+	def parse(self, q, pattern=None):
+		"""Return the data corresponding to the passed value `q`.
+		
+		If q is numerical data, simply return it.
+		
+		Else, q is an expression (string) containing names of quantities
+		defined on the Galaxy class and operations performed on these, replace
+		references to these names to calls to getattr(self, attr) for each
+		name, and return the result of eval() called on this expression.
+		
+		The result returned is guaranteed to be an ndarray with ndim >= 1."""
+		if isinstance(q,str):
+			expr = reparse(q, 'self', pattern=pattern, attributes=all_attributes)
+			res = eval(expr)#, self.globals
+		
+		else:
+			res = q
+		
+		return np.atleast_1d(res)
 	
 	################################
 	###
@@ -397,10 +428,21 @@ class _Galaxy:
 	
 	def get_deprojected_sides(self):
 		"""Compute shortside_list_graph_deproject and longside_list_graph_deproject"""
-		extentlist_graph_deproject=self.extentlist_graph_deproject
-		extg_cind=np.where(np.isclose(extentlist_graph_deproject[:, 0], self.EA))[0][0]
-		self.shortside_list_graph_deproject=np.copy(extentlist_graph_deproject[(extg_cind+np.arange(-ahl, ahl+1))%a2l])
-		self.longside_list_graph_deproject=np.copy(extentlist_graph_deproject[(extg_cind+al+np.arange(-ahl, ahl+1))%a2l])
+		extentlist_graph_deproject = self.extentlist_graph_deproject
+		extg_cind = np.where(np.isclose(
+			extentlist_graph_deproject[:, 0],
+			self.EA
+		))[0][0]
+		self.shortside_list_graph_deproject = np.copy(
+			extentlist_graph_deproject[
+				(extg_cind + np.arange(-ahl, ahl+1)) % a2l
+			]
+		)
+		self.longside_list_graph_deproject = np.copy(
+			extentlist_graph_deproject[
+				(extg_cind + al + np.arange(-ahl, ahl+1)) % a2l
+			]
+		)
 
 	def get_shortsums(self, lin_weights=np.linspace(1, 0, 101)):
 		"""Compute shortsum (fraction of shortside angles where radius is
@@ -415,7 +457,10 @@ class _Galaxy:
 		"""Get and set as an attribute an array sorted by another array."""
 		inds = np.argsort(internal_sorter_array)
 		setattr(self, sort_str + 'sort_inds', inds)
-		
+	
+	@property
+	def sample(self):
+		return galaxy_samples[self.filename]
 
 class Galaxy(_Galaxy):	
 	"""Supplements computational instructions from _Galaxy with instructions

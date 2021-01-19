@@ -4,12 +4,12 @@ scalar data (e.g. individual ratios, angles) and arrays. Internally, everything
 is stored in arrays in an hdf5 file, and this module, through the class
 'Galaxy_H5_Interface' and other functions, allow for accessing data indexed by:
 	(1) Galaxy name
-	(2) Data name
+	(2) Data type/name
 
 Given that h5py (perhaps hdf5 in general) can get slow when making a large
 number of repeated calls to rows at different indices within a Dataset, an
-algorithm is also contained to group rows contiguous to one another when
-writing scalars to disk to minimze the number of distinct write events required.
+algorithm is also provided to group rows contiguous to one another when
+writing scalars to disk to minimze the number of distinct file accesses required.
 """
 import os, traceback
 from collections import OrderedDict, ChainMap
@@ -298,11 +298,16 @@ class Galaxy_H5_Interface:
 		return cls.galaxy_samples_h5_group_mapping[galaxy_samples[filename]]
 	
 	def get_h5_sample_name(self,galaxy_instance):
-		if galaxy_instance.is_cluster: return 'cluster'
-		if galaxy_instance.is_atlas3d: return 'ATLAS3D'
-		if galaxy_instance.is_other: return 'OTHER'
-		if galaxy_instance.is_rsim: return 'rsim'
-		if galaxy_instance.is_vsim: return 'vsim'
+		if galaxy_instance.is_cluster:
+			return 'cluster'
+		if galaxy_instance.is_atlas3d:
+			return 'ATLAS3D'
+		if galaxy_instance.is_other:
+			return 'OTHER'
+		if galaxy_instance.is_rsim:
+			return 'rsim'
+		if galaxy_instance.is_vsim:
+			return 'vsim'
 		
 		raise ValueError(
 			f'this galaxy is not configured correctly: sample unobtainable: {galaxy_instance}'
@@ -323,8 +328,14 @@ class Galaxy_H5_Interface:
 		if self.preload_scalars:
 			return self.get_scalars_for_filenames(filenames, attributes=attributes)
 		else:
+			# group attributes by mapping {True:<arrays>, False:<non-arrays>}
 			attribute_groups = self.group_attributes(attributes)
+			
+			# map filenames to index in provided filename container
+			# the container need not be ordered, but results are returned
+			# in order of the container's inherent iteration
 			filename_mapping = {g:i for i,g in enumerate(filenames)}
+			
 			filename_groups = groupby_whole(
 				enumerate(filenames),
 				key = lambda p: self.get_h5_sample_group_from_filename(p[1])
@@ -349,10 +360,14 @@ class Galaxy_H5_Interface:
 	def _read_galaxy_scalars_from_sample(self, sample_name, filenames, scalar_attribute_indices):
 		
 		sample_galaxy_ordering_map, chunk_bounds = \
-			get_contiguous_filename_groups(sample_name, filenames, h5file=self.reader)
+			get_contiguous_filename_groups(
+				sample_name, filenames, h5file=self.reader)
 		
-		scalars = np.vstack([
-			self.reader[sample_name]['__scalars__'][start:end+1,scalar_attribute_indices]
+		# scalar data for this galaxy sample
+		scalar_source = self.reader[sample_name]['__scalars__']
+		
+		scalars = np.vstack([ # vstack --> AXES: 0 = filenames, 1 = quantities
+			scalar_source[start:end+1,scalar_attribute_indices]
 			for start,end in chunk_bounds
 		])
 		
@@ -371,7 +386,9 @@ class Galaxy_H5_Interface:
 		if isinstance(filenames, str): filenames = (filenames,)
 		if isinstance(attributes, str): attributes = (attributes,)
 		
+		# group attributes by mapping {True:<arrays>, False:<non-arrays>}
 		attribute_groups = self.group_attributes(attributes)
+		# map filenames to index in provided filename container
 		filename_mapping = {g:i for i,g in enumerate(filenames)}
 		filename_groups = groupby_whole(
 			filenames,
@@ -379,10 +396,8 @@ class Galaxy_H5_Interface:
 		)
 		
 		results = [None]*len(filenames)
-# 		print("read_arrays:\n\tfilename_groups:",filename_groups)
-# 		print('\tfilename_mapping:',filename_mapping)
+		
 		for g, filename_list in filename_groups.items():
-# 			print(f"\tg({g}): filename_list:",filename_list)
 			# put the results into the results list
 			# in the proper locations
 			array_assign(

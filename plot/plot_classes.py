@@ -6,6 +6,7 @@ from common import consume
 from matplotlib.projections import register_projection
 from matplotlib.pyplot import Figure
 from matplotlib.axes import Axes
+from matplotlib import pyplot as plt
 
 from .plotting_functions import paper_tex_save, misc_fig_save, keepax
 
@@ -38,7 +39,7 @@ class BindingPaperFigure(PaperFigure, BindingFigure):
 
 if __name__=='__main__':
 	fig = plt.figure()
-	register_projection(BoundedAxes)
+# 	register_projection(BoundedAxes)
 	bounder = plt.subplot()
 	ax = fig.add_axes(bounder.get_position(),projection = 'bounded')
 	ax.set_bounder(bounder)

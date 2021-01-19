@@ -1,3 +1,5 @@
+"""This module defines names that correspond to scalar attributes
+on the Galaxy class."""
 from core import MultiIterator
 
 """

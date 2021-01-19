@@ -1,3 +1,6 @@
+"""This module defines names that correspond to array attributes
+on the Galaxy class."""
+
 from core import MultiIterator
 
 m_agnostic = dict(

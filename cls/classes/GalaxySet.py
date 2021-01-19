@@ -1,6 +1,6 @@
 import re
 
-from common import getattrs, reparse, Struct, EmptyDict, MultiIterator
+from common import getattrs, reparse, consume, Struct, EmptyDict, MultiIterator
 from common.collections import windowed_chunked
 from common.decorators import add_doc_constants
 
@@ -76,15 +76,23 @@ class _GalaxySet:
 		return getattr(self, attr)
 	
 	def get(self, q, pattern=None):
-		"""Given an expression (string) containing names of quantities
+		"""Return the data corresponding to the passed value `q`.
+		
+		If q is numerical data, simply return it.
+		
+		Else, q is an expression (string) containing names of quantities
 		defined on the Galaxy class and operations performed on these, replace
 		references to these names to calls to getattr(self, attr) for each
-		name, and return the result of eval() called on this expression."""
+		name, and return the result of eval() called on this expression.
+		
+		The result returned is guaranteed to be an ndarray with ndim >= 1."""
 		if isinstance(q,str):
 			expr = reparse(q, 'self', pattern=pattern, attributes=all_attributes)
-			return eval(expr)#, self.globals
+			res = eval(expr)#, self.globals
 		
-		return q
+		else:
+			res = q
+		return np.atleast_1d(res)
 	
 	@makeax
 	def scatter(self, q1, q2, ax=None,
@@ -117,16 +125,47 @@ class _GalaxySet:
 		return ax.scatter(x, y, label=self.__class__.__name__, **kw)
 	
 	@makeax
-	def plot(self, q1, q2, ax=None, ls='none', marker='o', stabilize=False, **kw):
+	def plot(self, q1, q2, ax=None, ls='none', marker='o', stabilize=False,
+			 text=False, textkw=EmptyDict, textcond=None, **kw):
 		"""plt.plot of quantities q1, q2 (strings or plot data).
-		Returns the result of the matplotlib plotting call."""
+		Returns the result of the matplotlib plotting call.
+		
+		If `text`, the galaxy name is plotted next to the plotted point.
+		The text properties may be controlled via keywords passed to Axes.text
+		via `textkw`. If provided, `textcond` is a callable taking two values
+		x,y, the plotted values for a single point, as the sole arguments;
+		when False, it stops the text from being plotted; when True, the text
+		is plotted.
+		"""
 		x, y = self.get(q1), self.get(q2)
 		
 		if stabilize:
-			return stabilize_plot(y, X_array=x, **kw, ax=ax,
+			p = stabilize_plot(y, X_array=x, **kw, ax=ax,
 								  label=self.__class__.__name__)
-		return ax.plot(x, y, ls=ls, marker=marker,
-					   label=self.__class__.__name__, **kw)
+			if text: print('WARNING: stabilize_plot has been called, '
+						   'text on figure might be out of bounds')
+		
+		else:
+			p = ax.plot(x, y, ls=ls, marker=marker,
+						label=self.__class__.__name__, **kw)
+		
+		if text:
+			print(f'GalaxySet.plot: text=True: x:\n{x}\n,y:\n{y}\n')
+			kw = dict(ha='left',va='bottom', size=20)
+			kw.update(textkw)
+			if textcond is None:
+				consume(
+					ax.text(i, j, f, **kw) for i,j,f in zip(x,y,self._sample)
+					if not np.isnan(i)
+				)
+			else:
+				consume(
+					ax.text(i, j, f, **kw) for i,j,f in zip(x,y,self._sample)
+					if
+						(not (np.isnan(i) or np.isnan(j))) and
+						textcond(i, j)
+				)
+		return p
 	
 	def aplot(self, *a, **kw): self.plot(*a, stabilize=True, **kw)
 	def ascatter(self, *a, **kw): self.scatter(*a, stabilize=True, **kw)

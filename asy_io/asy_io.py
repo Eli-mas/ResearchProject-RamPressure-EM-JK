@@ -1,6 +1,9 @@
-"""Underlying i/o routines."""
+"""Underlying i/o routines, including:
 
-import sys, os, os.path, traceback, re
+	save_fmt: save a pandas DataFrame in human-readable format
+."""
+
+import sys, os, os.path, traceback, re, shutil
 from functools import partial, reduce
 
 from common import consume
@@ -55,27 +58,37 @@ def merge_dicts(*dicts,**k):
 
 def d_beam_func(d1,d2): return np.sqrt(d1*d2)
 
-def print_update(*p):
-	#stdout.write("\r"+str(p))
-	#stdout.write('\x1b[2K\r'+' '.join([str(i) for i in p]))
-	#stdout.flush()
-	print('\x1b[2K\r'+' '.join([str(i) for i in p]),flush=True,end='')
-
-def makepath(p): #https://stackoverflow.com/questions/273192/
+def print_update(*p, **kw):
+	"""Overwrite the contents of the current line, without creating a newline.
+	
+	The arguments passed are submitted to the inbuilt `print` function.
+	Keywords may also be passed, except that 'flush' will always be
+	set to True, and newline characters will be removed from 'end'.
 	"""
-	make a directory path, creating intermediary directories as required
+	kw['flush'] = True
+	kw.setdefault('end', '')
+	kw['end'] = kw['end'].replace('\n','').replace('\r','')
+	print('\x1b[2K\r'+' '.join([str(i) for i in p]), **kw)
+
+def makepath(p): # see https://stackoverflow.com/questions/273192/
+	"""
+	Make a directory path, creating intermediary directories as required.
 	:param p:
 	:return:
 	"""
-	path=os.path.join(os.getcwd(),p)
-	try: os.makedirs(path)
+	path = os.path.join(os.getcwd(), p)
+	try:
+		os.makedirs(path)
 	except OSError:
-		if not os.path.isdir(path): raise
+		if not os.path.isdir(path):
+			raise
 	return path
 
 def makepath_from_file(f):
 	"""
-	make a directory to host a file given the full file path
+	Make a directory to host a file given the full file path.
+	
+	The path is taken as everything before the final / character.
 	:param f: full file path
 	:return:
 	"""
@@ -91,8 +104,8 @@ def touch_directory(directory):
 	:return:
 	
 	
-	! ! ! Much simpler approach--
-		use the Unix-native `touch` command with `-m` argument !
+	! ! ! Note to self: Much simpler approach--
+		use the Unix-native `touch` command with `-m` argument 
 	"""
 	f = '__temp__{}'
 	i=0
@@ -108,15 +121,43 @@ def touch_directory(directory):
 		if os.path.exists(t):
 			os.remove(t)
 
-def savetxt(p,ar,**k):
+def savetxt(p, ar, **k):
+	"""Given a path to a file `p` and an array `ar`,
+	call np.savetxt(p, ar, **kw), first ensuring that
+	the directory containing p exists."""
 	makepath_from_file(p)
 	np.savetxt(p,ar,**k)
 
 def str_replace(s,args,r=''):
+	"""Given a replacement str `r`, for each str 'rep' in `args`,
+	set s to be the result of s.replace(rep, r), and return the result.
+	"""
 	for arg in args: s=s.replace(arg,r)
 	return s
 
-def fpull(file,c=None,a=[],s=0,e=0,rep=None,r=None,ret=0):
+def fpull(file, c=None, s=0, e=0, rep=None, r=None, ret=0):#, a=[]
+	"""An OLD function that reads data from a file and stores
+	in a list of lists. The lines are first split by str.split,
+	with no keyword arguments passed. Then, the other parameters
+	to this function modify how the data are handled.
+	
+	:: Parameters ::
+	c: if provided, an integer; lines are only included
+		if they have at least this many elements.
+	
+	s: starting line in the file to process; default 0 (first line)
+	e: ending line (exclusive) in the file to process.
+	
+	rep: if provided, an iterable of str. Each element
+		will be replaced by the value passed to the `r` parameter.
+	r: the replacement str for each element in the `rep` argument.
+		Has no effect if `rep` is not provided.
+	
+	ret: if bool(ret) is False, return dictionary
+		where each line's first element comprise keys,
+		with corresponding values being a list of remaining elements
+		on the line.
+	"""
 	f=open(file,errors='replace')
 	if not e: l=f.readlines()[s:]
 	else: l=f.readlines()[s:e]
@@ -124,9 +165,9 @@ def fpull(file,c=None,a=[],s=0,e=0,rep=None,r=None,ret=0):
 	else: l=[str_replace(pl,rep,r=r).split() for pl in l]
 	if c==None: pass
 	else: l=[pl for pl in l if len(pl)>c]
-	if not a: pass
-	else:
-		for pl in l: pl[a[1]]=str_replace(pl[a[1]],a[0])
+# 	if not a: pass
+# 	else:
+# 		for pl in l: pl[a[1]]=str_replace(pl[a[1]],a[0])
 	f.close()
 	if not ret:
 		d={}
@@ -134,21 +175,35 @@ def fpull(file,c=None,a=[],s=0,e=0,rep=None,r=None,ret=0):
 		return d
 	elif ret=='a': return np.array(l)
 
+# coordinate data for cluster galaxies
 coorslinesdata=fpull(DATA_SOURCES_PATH+'gal_coor.file',rep=('h','m','s','d'),r=' ')
+# other galaxy properties for cluster galaxies
 shapedata=fpull(DATA_SOURCES_PATH+'gal_shape_mod.file')
-OTHER_data=fpull(DATA_SOURCES_PATH+'OTHER/OTHER.file',s=1,e=2)
 
+OTHER_data=fpull(DATA_SOURCES_PATH+'OTHER/OTHER.file',s=1,e=2)
+ATLAS3D_data=fpull(DATA_SOURCES_PATH+'ATLAS3D/ATLAS3D.file',s=1,e=24)
+
+# also data for cluster galaxies, but used in other scripts
 cluster_shape_data = pd.read_csv(DATA_SOURCES_PATH+'gal_shape_mod.data',index_col=0)
 cluster_coor_data = pd.read_csv(DATA_SOURCES_PATH+'gal_coor.data',index_col=0)
 
-ATLAS3D_data=fpull(DATA_SOURCES_PATH+'ATLAS3D/ATLAS3D.file',s=1,e=24)
 
 def listify(input,convert): return [input] if isinstance(input,convert) else input
 def listify2(input):
 	try: return list(input)
 	except TypeError: return [input]
 
-def get_shortside_data(Ginstance):
+def get_shortside_data(Ginstance, deny_m2_high_i=deny_m2_high_i):
+	"""Get an array of shortside extents at each angle and their median.
+	
+	The return value is a tuple (e, m), where e is a 2-d array of the
+	extents (second column) and the associated angles (first column),
+	and m is the median of these extents. If the galaxy has low inclination,
+	the extent values are deprojected, and the extents are divided by
+	their median; otherwise, the extents are not deprojected, and the
+	median is returned as nan.
+	
+	"""
 	shortside_list_graph=np.array(Ginstance.shortside_list_graph)
 	
 	if deny_m2_high_i and Ginstance.inclination>high_i_threshold:
@@ -161,9 +216,12 @@ def get_shortside_data(Ginstance):
 	
 	shortside_show[:,0]=shortside_show[:,0]%360
 	
-	return shortside_show,shortside_median
+	return shortside_show, shortside_median
 
 def get_raw_data_from_fits(Ginstance):
+	"""Given a Galaxy instance, extract relevant data from the fits file
+	for that galaxy, set the instances 'data_raw' attribute, and return
+	the fits file header (the file is closed first)."""
 	filename,openname,filetype=Ginstance.filename,Ginstance.openname,Ginstance.filetype
 	fits_file = fits.open(openname)
 	data = fits_file[0].data
@@ -186,7 +244,35 @@ def get_raw_data_from_fits(Ginstance):
 	return fileheader
 
 def fits_data(Ginstance):
-	"""returns relevant data pertaining to galaxy and corresponding fits file"""
+	"""Returns relevant data pertaining to galaxy and corresponding fits file.
+	
+	In particular, the following attributes are set on Ginstance:
+		PA: position angle of the galaxy's major axis
+		inclination: viewing angle (inclination) in degrees; 0 <= i <= 90
+		xpix: x-coordinate of center as a pixel location on moment-0 map
+		ypix: y-coordinate of center as a pixel location on moment-0 map
+		pix_scale_arcsec: scale of side length of each pixel in arcsec
+		d_beam_arcsec: beam diameter of the moment-0 map in arcsec
+		is_atlas3d: boolean, tells if galaxy is in the ATLAS3D set
+		is_cluster: boolean, tells if galaxy is in the cluster set
+		is_other: boolean, tells if galaxy is in the OTHER set
+		is_real: boolean, tells if galaxy is a real (observational) galaxy
+		is_rsim: boolean, tells if galaxy is a Roediger simulation
+		is_vsim: boolean, tells if galaxy is a Vollmer simulation
+		is_ref: boolean, tells if galaxy is a reference observational galaxy
+	
+	For real galaxies, the following attributes are also set:
+		xcenter: RA (right ascension) of center in degrees
+		ycenter: DEC (declination) of center in degrees
+		R25: a radius measure corresponding to the galaxy's stellar disk
+		beam_PA: PA of the beam used to take the image, in arcsec
+		beam_d1: first diameter of the beam used to take the image, in arcsec
+		beam_d2: second diameter of the beam used to take the image, in arcsec
+		A_beam: area in the beam, in arcsec^2
+		channel_width: width of channels that made the moment-0 map
+		rms_ch_jy_b: rms error per channel
+		rms_for_noise_runs: controls amount of noise added to pixels for Monte Carlo simulation
+	"""
 	#try:
 	#	for attr in ('basic_info','real_data','noise_data','zdata'):#'data_raw'
 	#		setattr(Ginstance,attr,Ginstance._load_array(attr))
@@ -360,7 +446,13 @@ def fits_data(Ginstance):
 			Ginstance._save_array(artype,ar)"""
 
 def _gal_check_association(filename):
-	if re.match('[[].*[]]',filename) is not None: return eval(filename[1:-1])
+	"""Return the sample corresponding to the provided filename (str).
+	Note: here, filename should not name a single galaxy, but a sample.
+	It may also be expressed using Python list syntax, i.e.
+	"[gal1, gal2, ...]".
+	"""
+	if re.match('[[].*[]]',filename) is not None:
+		return eval(filename[1:-1])
 	fn=filename.lower()
 	if fn in {'v','virgo'}: return Virgo
 	if fn in {'c','cluster'}: return cluster
@@ -383,6 +475,8 @@ def _gal_check_association(filename):
 	# else: return None
 
 def _gal_check_individual(filename):
+	"""Given a galaxy name, make sure that it is properly formatted
+	to be recognized by the program. Return a corrected version if needed."""
 	fn=filename.lower()
 	if 'v'==fn[0]:
 		# match=re.search('v\d_\d+',fn)
@@ -399,6 +493,10 @@ def _gal_check_individual(filename):
 		else: return None
 
 def _gal_identify(filename):
+	"""If `filename` denotes a sample of galaxies, return
+	an iterable of galaxies in that sample; otherwise,
+	return a set whose sole element is the name corresponding
+	to that galaxy."""
 	res = _gal_check_association(filename)
 	if res is not None: return res
 	
@@ -406,6 +504,7 @@ def _gal_identify(filename):
 	if res is not None: return {res,}
 
 def gal_check(override=None):
+	"""Allows for specifying galaxy names from the command line."""
 	if len(sys.argv)>1: override=sys.argv[1]
 	if override is None:
 		init_input = input('Which galaxy would you like to work with? ')
@@ -425,7 +524,11 @@ def gal_check(override=None):
 	
 	return names[np.argsort(original_indices)]
 
-def errtrace(check=None,message=None):
+def errtrace(check=None, message=None):
+	"""Prints out an error traceback message with some formatting.
+	Meant to be used immediately after catching an exception,
+	which supplies the traceback information via `traceback.format_exc`.
+	"""
 	err=traceback.format_exc().split('\n')[:-1]
 	if check is None: pass
 	else:
@@ -439,6 +542,8 @@ def errtrace(check=None,message=None):
 		print(i,'----    ='+t)
 
 def return_ref_data(filename,xcenter,ycenter):
+	"""Return data corresponding to the radio deficit map
+	for the sepcified galaxy having (xcenter,ycenter) center."""
 	prefix='fits files/'
 	try:
 		if filename=='4569': fpath='n'+filename+'_sings_0.5_mask.fits'
@@ -458,16 +563,35 @@ def return_ref_data(filename,xcenter,ycenter):
 	except IOError: return (None,)*4 #print filename,'return_ref_data error: ref_data not returned'
 
 def sanitize_path(p):
+	"""Replace non-permitted characters in filenames with dashes."""
 	return re.subn('[/|:]','-', p)[0]
 
 lprint=partial(print,sep='\n')
+
+def copy_paper_symlink_tree(paper, link_folder):
+	"""Given a paper name and associated folder link_folder, which
+	expressed a path relative to the associated directory where figures
+	for the paper are saved, copy the files referenced by the symlinks
+	in the folder to another directory, maintaining the structure of the
+	directory under `link_folder`.
+	"""
+	paper = str(paper)
+	if not isinstance(link_folder, str):
+		link_folder = os.path.join(*link_folder)
+	
+	inpath = os.path.join(get_figure_link_path(paper), link_folder)
+	path = os.path.join(get_paper_path(paper), 'copytree', link_folder)
+	if os.path.exists(path):
+		os.remove(path)
+	
+	shutil.copytree(inpath, path)
 
 __all__= ('load_array','save_array','save_fmt','merge_dicts','d_beam_func',#'select',
 'print_update','makepath','makepath_from_file','touch_directory','savetxt',
 'str_replace','fpull','coorslinesdata','shapedata','OTHER_data','ATLAS3D_data',
 'listify','listify2','get_shortside_data','sanitize_path','lprint','cluster_shape_data',
 'get_raw_data_from_fits','fits_data','gal_check','errtrace','return_ref_data',
-'cluster_coor_data')
+'cluster_coor_data','copy_paper_symlink_tree')
 
 if __name__=='__main__':
 	res=gal_check()
