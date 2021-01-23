@@ -879,7 +879,7 @@ def total_t_fsort(self):
 	self.total_t_fsort = self.total_t[self.fsort_inds]
 	return self.total_t_fsort
 
-@add_doc_constants(globals(), a2l)
+@add_doc_constants(globals(), 'a2l')
 def total_t_int(self):
 	"""Theta index (0 <= i < a2l) for all pixels."""
 	self.total_t_int = (np.round(self.total_t * a2l / tau).astype(int)) % a2l

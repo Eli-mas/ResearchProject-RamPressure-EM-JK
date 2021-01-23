@@ -93,6 +93,11 @@ def p_to_c(theta, radius, xc, yc):
 def ellipse(a, d_beam_arcsec, inclination, PA, b=None, normal=False, m2=False, eplot=False, polar_axis=None):
 	"""
 	`inclination`, `PA` provided in degrees
+	
+	a, b, d_beam_arcsec are provided in arcsec
+	a: semi-major axis (i.e., a radius, NOT diameter)
+	b (optional): minor axis (again, a radius)
+	d_beam_arcsec: beam diameter, NOT radius
 	"""
 	inc=inclination*deg_to_rad
 	if b is None:
@@ -104,18 +109,25 @@ def ellipse(a, d_beam_arcsec, inclination, PA, b=None, normal=False, m2=False, e
 		if m2:
 			"""if debug: ab_ar=[[a, b]]"""
 			r_beam_arcsec = d_beam_arcsec/2
+# 			initial_a = a
 			a = quadrature_sum(a, r_beam_arcsec)
 			b = quadrature_sum(b, r_beam_arcsec*np.sin(inc))
+# 			b_test = quadrature_sum(initial_a*np.cos(inc), r_beam_arcsec*np.sin(inc))
+# 			print(f"ellipse: m2=True: initial_a={initial_a:.1f} a={a:.1f}, b={b:.1f} ({b_test:.1f})")
 			"""if debug and debug_master_keys['m2_calc']:
 				print('ellipse: m=2 a =', a)
 				print('ellipse: m=2 b =', b)
 				ab_ar.append([a, b])
 				print(np.array(ab_ar))"""
-	phi=PA*deg_to_rad
+	phi = PA*deg_to_rad
 	#print '%s ellipse: a=%.2f, b=%.2f, phi=%.2f, d_beam_arcsec=%.2f, ' %(filename, a, b, phi, d_beam_arcsec)
 	#print "ellipse: R25(''), inclination %g %g" %(R25*60, inclination)
-	e_angles=np.linspace(0, tau, a2l, endpoint=False)
-	e_radii=(a*b)/np.sqrt((b*np.cos(e_angles-phi))**2+(a*np.sin(e_angles-phi))**2)
+	e_angles = np.linspace(0, tau, a2l, endpoint=False)
+	theta = e_angles-phi
+	e_radii = (a*b)/np.sqrt(
+				  (b*np.cos(theta))**2 +
+				  (a*np.sin(theta))**2
+				)
 	#		np.array([(a*b)/np.sqrt((b*np.cos(t-phi))**2+(a*np.sin(t-phi))**2) for t in e_angles])
 	if eplot:
 		if polar_axis is None: polar_axis=plt.gca(polar=True)

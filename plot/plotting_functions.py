@@ -87,10 +87,10 @@ from comp.array_functions import minmax, get_region_inds, take_by_condition, get
 
 def test_fig_save(name,*folders,**k):
 	"""Save a figure in the test figure location via 'fig_size_save'."""
-	folder_path=os.path.join(*folders)
-	path=TEST_FIGURE_LOCATION+os.path.join(folder_path,name)
-	kw=merge_dicts({'bbox_inches':'tight'},k)
-	return fig_size_save(path,**kw)
+	folder_path = os.path.join(*folders)
+	path = TEST_FIGURE_LOCATION+os.path.join(folder_path,name)
+	kw = merge_dicts({'bbox_inches':'tight'},k)
+	return fig_size_save(path, **kw)
 
 def paper_fig_save(name,paper,*folders,**k):
 	"""Save a figure in a paper figure location via 'fig_size_save'."""

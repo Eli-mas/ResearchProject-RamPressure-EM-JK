@@ -6,7 +6,8 @@ from prop.asy_prop_plot import *
 from prop.asy_defaults import *
 from comp.computation_functions import *
 
-def rp_trace_plot(self, reject_by_m2 = False):
+def rp_trace_plot(self, reject_by_m2 = False, save = True,
+				  sig_asy = True, plot_sig_asy = True, zoom=True):
 # 	PA_radii=self.get_PA_radii()#np.sum(PA_radii, axis=1)
 # 	gas_content=self.get_contained_gas()
 	
@@ -25,17 +26,24 @@ def rp_trace_plot(self, reject_by_m2 = False):
 
 	norm0_ratio_ax = self.ratio_plot(ax=ratio_ax, save=False, m2=False)#, show_rp=False
 	ratio_ax.get_legend().set_title('asymmetry measures', prop=dict(size=20))
-	try:
-		if not reject_by_m2: raise AttributeError
-		sig_asy=sig_asy_full_mask(self.ER, self.FR, self.m2ER, self.m2FR)
-		print('sig_asy in rp_trace_plot: m=2 included')
-	except AttributeError:
-		print('AttributeError in sig_asy in rp_trace_plot, no m=2 included')
-		sig_asy = sig_asy_mask(self.ER, self.FR)
+	if sig_asy:
+		try:
+			if not reject_by_m2: raise AttributeError
+			sig_asy=sig_asy_full_mask(self.ER, self.FR, self.m2ER, self.m2FR)
+			print('sig_asy in rp_trace_plot: m=2 included')
+		except AttributeError:
+			print('AttributeError in sig_asy in rp_trace_plot, no m=2 included')
+			sig_asy = sig_asy_mask(self.ER, self.FR)
+		self.aplot(ax=angle_ax, save=False, sig_asy=sig_asy, plot_sig_asy=plot_sig_asy, show_rp=True, offsets=True)
+		self.aplot(ax=angle_zoom_ax, save=False, sig_asy=sig_asy, zoom=True, plot_sig_asy=plot_sig_asy, show_rp=False, offsets=True)
+	else:
+		sig_asy = np.full(len(self),True,dtype=bool)
+		self.aplot(ax=angle_ax, save=False, sig_asy=sig_asy, plot_sig_asy=plot_sig_asy, show_rp=True, offsets=True)
+		self.aplot(ax=angle_zoom_ax, save=False, sig_asy=sig_asy, zoom=False, plot_sig_asy=plot_sig_asy, show_rp=False, offsets=True)
+		print(angle_zoom_ax)
+		sig_asy = None
 	#print(sig_asy)
-	self.aplot(ax=angle_ax, save=False, sig_asy=sig_asy, plot_sig_asy=True, show_rp=True, offsets=True)
 	angle_ax.get_legend().set_title('asymmetry angles', prop=dict(size=20))
-	self.aplot(ax=angle_zoom_ax, save=False, sig_asy=sig_asy, zoom=True, plot_sig_asy=True, show_rp=False, offsets=True)
 	angle_zoom_ax.legend(handles=[], title='asymmetry angles (zoomed)', title_fontsize=20)
 
 	#m1_m2_flux_ax=m1_m2_ext_ax.twinx()
@@ -66,23 +74,30 @@ def rp_trace_plot(self, reject_by_m2 = False):
 	for ax in axes[:-1]: ax.set_xticks([])
 	#angle_zoom_ax.legend().remove()
 
-	lines = angle_zoom_ax.lines[:]
-	angle_zoom_ax_yminima = [np.nanmin(l.get_data()[1]) for l in lines]
-	angle_zoom_ax_ymin = max(angle_zoom_ax_yminima)
-	angle_zoom_ax_ymaxima = [np.nanmax(l.get_data()[1]) for l in lines]
-	angle_zoom_ax_ymax = max(angle_zoom_ax_ymaxima)
+	
+	if zoom:
+		lines = angle_zoom_ax.lines[:]
+		angle_zoom_ax_yminima = [np.nanmin(l.get_data()[1]) for l in lines]
+		angle_zoom_ax_ymin = max(angle_zoom_ax_yminima)
+		angle_zoom_ax_ymaxima = [np.nanmax(l.get_data()[1]) for l in lines]
+		angle_zoom_ax_ymax = max(angle_zoom_ax_ymaxima)
 
-	removals = []
-	# print(f'rp_trace_plot {self.directory}:')
-	for i, (l, m) in enumerate(zip(lines, angle_zoom_ax_yminima)):
-		# print(np.nanmin(l.get_data()[1]), np.nanmax(l.get_data()[1]))
-		if angle_zoom_ax_ymax-m > 360:
-			# print('remove')
-			removals.append(i)
-			continue
+		removals = []
+		# print(f'rp_trace_plot {self.directory}:')
+		for i, (l, m) in enumerate(zip(lines, angle_zoom_ax_yminima)):
+			# print(np.nanmin(l.get_data()[1]), np.nanmax(l.get_data()[1]))
+			if angle_zoom_ax_ymax-m > 360:
+				# print('remove')
+				removals.append(i)
+				continue
 
-	for i in removals: lines[i].remove()
-
+		for i in removals: lines[i].remove()
+	else:
+		for l in angle_zoom_ax.lines[:]:
+			m,M = l.get_data()[1].min(), l.get_data()[1].max()
+			if m<angle_ax.get_ylim()[0] or M> angle_ax.get_ylim()[1]:
+				l.remove()
+	
 	imshow_axes=np.array([plt.subplot(gs[0, i]) for i in range(6)])
 	try:
 		self.zshow(
@@ -99,7 +114,9 @@ def rp_trace_plot(self, reject_by_m2 = False):
 		ax.text(0.01, 0.01, c, va='bottom', ha='left', size=16, transform=ax.transAxes)
 
 	multi_axis_labels(axes, x='Time (Myr)', size=16)
-	self.namesave('rp trace', append='plot', s=(13, 16))
+	if save: self.namesave('rp trace', append='plot', s=(13, 16))
+	
+	return imshow_axes, axes
 
 def zshow(self, indices=None, axes=None, save=True, save_kw={}, wind=False, inout=False, border=True):
 	save=save and (indices is None) and (axes is None)

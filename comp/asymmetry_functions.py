@@ -23,7 +23,8 @@ from comp.computation_functions import (ellipse, c_to_p, reindex, p_to_c,
 	rolling_gmean_wrap, rolling_sum_wrap, sort_arrays_by_array,# rolling_mean_wrap,
 	round_to_nearest, znan)#
 
-from plot.plotting_functions import hline, vline, ax_0N, test_fig_save, full_legend, create_hidden_axis#, fig_size_save
+from plot.plotting_functions import (hline, vline, ax_0N, test_fig_save,
+	full_legend, create_hidden_axis, axlabels)
 
 from common.decorators import add_doc_constants
 
@@ -246,8 +247,8 @@ def galaxy_outer_configure(Ginstance):
 		# wrongside pixels can only be located in regions where
 		# outer boundary radii (pl_compare) is recorded as being smaller
 		# than inner boundary radii (inedge_ar)
-		ie_pl_dif=np.round(pl_compare-inedge_ar)
-		wrongside_pixels_possible=np.sum(ie_pl_dif<0)
+		ie_pl_dif = np.round(pl_compare - inedge_ar)
+		wrongside_pixels_possible = np.sum(ie_pl_dif < 0)
 		if wrongside_pixels_possible:
 			#print filename+' pl_compare-inedge_ar: (max neg=%g)'%np.min(ie_pl_dif[ie_pl_dif<0])
 			#print pl_compare-inedge_ar
@@ -282,7 +283,7 @@ def galaxy_outer_configure(Ginstance):
 	else: wrongside_pixel_cond=np.array([],dtype=int)
 	
 	# set to None to clear reference to arrays
-	pl_compare=inedge_ar=None
+	pl_compare=inedge_ar = None
 	
 	#ie_pl_pp_dif=np.round(inedge_ar_per_pixel_psa)-np.round(pl_compare_per_pixel)
 	
@@ -294,11 +295,11 @@ def galaxy_outer_configure(Ginstance):
 	outer_pixel_cond[
 		outer_pixel_cond & 
 		((np.round(inedge_ar_per_pixel_psa)-np.round(pl_compare_per_pixel))==0)
-	]=False
+	] = False
 	
 	# set to None to clear reference to arrays
-	inedge_ar_per_pixel_psa=None
-	pl_compare_per_pixel=None
+	inedge_ar_per_pixel_psa = None
+	pl_compare_per_pixel = None
 	
 	# set Galaxy attributes
 	Ginstance.noncenter_x=total_x_tsort[outer_pixel_cond]
@@ -307,7 +308,7 @@ def galaxy_outer_configure(Ginstance):
 	Ginstance.wrongside_y=total_y_tsort[wrongside_pixel_cond]
 	
 	# index into other arrays to identify values describing outer pixels
-	noncenter_t_int,noncenter_f,noncenter_t,noncenter_r=[
+	noncenter_t_int,noncenter_f,noncenter_t,noncenter_r = [
 		ar[outer_pixel_cond] for ar in
 		(total_t_int_tsort,total_f_tsort,total_t_tsort,total_r_tsort)
 	]
@@ -457,44 +458,61 @@ def correct_for_beam_smearing_new(r, d_beam_arcsec, mult=1, expand=False, plot=F
 	"""Correct a radius (expressed in arcsec) for beam smearing.
 	
 	As it is used, r=extentlist_graph[:,1]"""
-	r_beam_arcsec=d_beam_arcsec/2
+	r_beam_arcsec = d_beam_arcsec/2
 	
 	"""asymmetry_functions_adc_non_decommented_02_19_15.py contains commented-out former formula"""
-	if plot:
-		plt.plot(r)
-		plt.plot(mult * r_beam_arcsec)
-		plt.show()
+# 	if plot:
+# 		plt.plot(r)
+# 		plt.plot(mult * r_beam_arcsec)
+# 		plt.show()
 	return quadrature_sub(r, mult * r_beam_arcsec)
 
-def get_beam_corrected_extentlist(Ginstance, plot=False):
+def get_beam_corrected_extentlist(Ginstance, plot=False, link_folder = None):
 	"""
 	Correct for beam effects by applying
 	`correct_for_beam_smearing_new` to the `extentlist_graph`
 	attribute, establishing `extentlist_graph_corrected`.
 	"""
 	if Ginstance.is_real:
-		beam = ellipse(a=Ginstance.beam_d1, b=Ginstance.beam_d2, PA=Ginstance.beam_PA,
+		beam = ellipse(a=Ginstance.beam_d1/2, b=Ginstance.beam_d2/2, PA=Ginstance.beam_PA,
 					   inclination=0, d_beam_arcsec=None)
 		beam = reindex(beam, ahl, axis=1)
-		beam_diameter = beam[1]
+		beam_diameter = beam[1] * 2
 	else:
-		beam_diameter=Ginstance.d_beam_arcsec
+		beam_diameter = Ginstance.d_beam_arcsec
 	
-	extentlist_graph=Ginstance.extentlist_graph
-	extentlist_graph_corrected=np.column_stack((
+	extentlist_graph = Ginstance.extentlist_graph
+	extentlist_graph_corrected = np.column_stack((
 		extentlist_graph[:,0],
-		correct_for_beam_smearing_new(extentlist_graph[:,1], beam_diameter, plot=plot)
+		correct_for_beam_smearing_new(
+			extentlist_graph[:,1],
+			beam_diameter,
+			plot=plot
+		)
 	))
 	Ginstance.extentlist_graph_corrected = extentlist_graph_corrected
 	
 	if plot:
-		b=np.array(beam).T
-		ax=plt.subplot(polar=True); ax.set_theta_zero_location('N')
-		ax.plot(*(b*[deg_to_rad,1.1/2]).T)
-		ax.plot(*(Ginstance.extentlist_graph*[deg_to_rad,1]).T)
-		plt.title(Ginstance.filename)
-		ax.plot(np.linspace(0,tau,100),[Ginstance.d_beam_arcsec*1.1/2.]*100,c='cyan',ls='--')
-		plt.show()
+		if link_folder is None:
+			raise ValueError("`link_folder` must be specified")
+		fn = Ginstance.filename
+		fig = plt.figure()
+		ax = ax_0N(fig.add_subplot(polar=True))
+		ax.plot(*(Ginstance.extentlist_graph*[deg_to_rad,1]).T,
+				label='original extents', lw=2)
+# 		ax.plot(np.linspace(0,tau,100),[Ginstance.d_beam_arcsec*1.1/2.]*100,c='cyan',ls='--')
+		ax.plot(*(Ginstance.extentlist_graph_corrected*[deg_to_rad,1]).T,
+				label='beam-corrected extents', ls='--', lw=2)
+		ax.set_title(f'{fn}: extentlist w & w/o beam correction')
+		ax.legend(fontsize=16)
+		test_fig_save(f"{fn} beam correction", link_folder, fn, fig=fig, close=True)
+		b = np.array(beam).T
+		fig = plt.figure()
+		ax = fig.add_subplot() # ax_0N(fig.add_subplot(polar=True))
+		ax.plot(*b.T)
+		axlabels('angle from N', "radius ('')", size=16)
+		ax.set_title(f'{fn}: beam // angle')
+		test_fig_save(f"{fn} beam", link_folder, fn, fig=fig, close=True)
 	#return np.array(beam)
 
 def return_flux_ratio_score_array(region_f_per_t, sub=True, half=ahl, trig=False):
@@ -569,7 +587,7 @@ def ratio_angle_calc(Ginstance, rweight=False, trig=False):
 	if rweight: arrays = tuple(a+'_rw' for a in arrays)
 	Ginstance._setattrs_unzip(arrays, (htscores_ar, fluxscore_ar, qfluxscore_ar))
 
-def get_deprojected_extentlist(Ginstance):
+def get_deprojected_extentlist(Ginstance, plot = False, folder = None):
 	"""Get a deprojected version of the extentlist array."""
 	d_beam_arcsec,extentlist_graph,inclination,PA,extentlist_graph_corrected=\
 	Ginstance.getattrs('d_beam_arcsec', 'extentlist_graph', 'inclination',
@@ -581,9 +599,21 @@ def get_deprojected_extentlist(Ginstance):
 						inclination, PA)
 	)
 	#egda[:,0]=egda[:,0]%a2l
-	Ginstance.extentlist_graph_deproject=egda
+	Ginstance.extentlist_graph_deproject = egda
+	if plot:
+		if folder is None:
+			raise ValueError("`folder` must be specified")
+		fig = plt.figure()
+		ax = fig.add_subplot()
+		ax.plot(*extentlist_graph_corrected.T, label = 'projected outer boundary')
+		ax.plot(*egda[:,:2].T, label = 'deprojected outer boundary')
+		vline(Ginstance.PA, c=PA_color, lw=2, label='PA')
+		ax.legend(fontsize=14)
+		axlabels('angle from N', "radius ('')", size=16)
+		test_fig_save(f"{Ginstance.filename} deprojection",
+			folder, Ginstance.filename, fig = fig)
 
-def get_m2_ext_quantities(Ginstance):#,newcheck=True
+def get_m2_ext_quantities(Ginstance, plot=False, folder=None):#,newcheck=True
 	"""Get the m=2 averaged deprojected extents at all angles,
 	as well as the min/max of these averaged extents, and
 	set as instance attributes."""
@@ -604,13 +634,29 @@ def get_m2_ext_quantities(Ginstance):#,newcheck=True
 			1 # column 1
 		])
 		for i in range_a2l
-	])#_new
+	])
 	m2avg_min = np.min(m2ext_avgs)
 	m2avg_max = np.max(m2ext_avgs)
 	Ginstance.m2mM = np.array([m2avg_min, m2avg_max])
 	Ginstance.m2ext_avgs = m2ext_avgs
+	
+	if plot:
+		if folder is None:
+			raise ValueError("`folder` must be specified")
+		fig = plt.figure()
+		ax = fig.add_subplot()
+		ax.plot(*egda[:,:2].T, label = 'deprojected outer boundary')
+		ax.plot(range_a2l_deg, m2ext_avgs, label = f'90{deg}-reflected-averaged deprojected extent')
+		ax.legend(fontsize=14)
+		hline([m2avg_min, m2avg_max], c='k')
+		ax.set_xlim(0, 360)
+		for v in (m2avg_min, m2avg_max):
+			ax.text(362, v, f"{v:.1f}''", va='center', ha='left', size=16)
+		axlabels('angle from N', "radius ('')", size=16)
+		test_fig_save(f"{Ginstance.filename} m=2 extent averages",
+			folder, Ginstance.filename, fig = fig)
 
-def get_m2_inner_boundary(Ginstance):
+def get_m2_inner_boundary(Ginstance, plot=False, folder = None):
 	"""Get the m=2 inner boundary, expressed in projected radii."""
 	if deny_m2_high_i and Ginstance.inclination>high_i_threshold:
 		Ginstance.m2interior_edge=nan
@@ -635,6 +681,30 @@ def get_m2_inner_boundary(Ginstance):
 	m2inedge_ar_per_pixel = m2inedge_ar[total_t_int_tsort]
 	m2inner_pixel_cond = total_r_tsort <= m2inedge_ar_per_pixel
 	
+	if plot:
+		if folder is None:
+			raise ValueError("`folder` must be specified")
+		fig = plt.figure()
+		ax = fig.add_subplot()
+		ax.set_xlim(0, 360)
+		ax.plot(range_a2l_deg, Ginstance.m2ext_avgs,
+				label = f'90{deg}-averaged deprojected extent')
+		ax.plot(range_a2l_deg, m2inedge_ar * pix_scale_arcsec,
+				label='inner boundary')
+		vline(Ginstance.PA, c=PA_color, lw=2, label='PA')
+		inc = inclination * deg_to_rad
+		a = quadrature_sum(m2avg_min, d_beam_arcsec/2)
+		b = quadrature_sum(m2avg_min*np.cos(inc),
+						   (d_beam_arcsec/2)*np.sin(inc))
+		# b = quadrature_sum(a*np.cos(inc), r_beam_arcsec*np.sin(inc))
+# 		print(f'm2avg_min, a, b: {m2avg_min:.1f}, {a:.1f}, {b:.1f}')
+		hline([m2avg_min, a, b], c='k')
+		axlabels('angle from N', "radius ('')", size=16)
+		for v,l in ((a,'a'), (b,'b')):
+			ax.text(362, v, f"{l}={v:.1f}''", va='center', ha='left', size=16)
+		ax.legend(fontsize=14)
+		test_fig_save(f"{Ginstance.filename} m=2 inner boundary",
+			folder, Ginstance.filename, fig = fig)
 	return m2inner_pixel_cond, m2inedge_ar, m2inedge_ar_per_pixel
 
 # def get_m2_center_data(Ginstance):
@@ -879,7 +949,7 @@ def get_m2_noncenter_data(Ginstance, check_wrongside=True, test=False):#,newchec
 				print m2nc_f_per_t[t_int_vals]"""
 				
 				m2nc_f_per_t[t_int_vals] -= tuple(
-					np.average(wrongside_radii_avg_flux[theta_int == i])
+					np.sum(wrongside_radii_avg_flux[theta_int == i])
 					for i in t_int_vals
 				)
 				
@@ -995,7 +1065,7 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 		Ginstance, check_wrongside = check_wrongside, test = test
 	)
 	
-	if mode==0:
+	if mode==0: # use flux data to calculate weights
 		qdata=qofs
 		abcd_rows = complex_reindex_2d(
 			np.broadcast_to(qdata, [4, a2l]),
@@ -1026,7 +1096,7 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 		abcd_stack = abcd_rows.T
 		ABCD = None
 	
-	elif mode==1:
+	elif mode==1: # use extent data to calculate weights
 		qdata = rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1], aql)
 		a_all, b_all, c_all, d_all = \
 			qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]

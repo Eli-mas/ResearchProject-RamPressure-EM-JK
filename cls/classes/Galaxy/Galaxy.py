@@ -482,8 +482,8 @@ class Galaxy(_Galaxy):
 		return recomputed_galaxies
 	
 	@classmethod
-	def read_scalars(cls, filenames, attributes):
-		"""Retrieve scalar data as pandas DataFrame with filenames
+	def read_scalars(cls, filenames, attributes, squeeze=True):
+		"""Retrieve scalar data as numpy ndarray with filenames
 		as index, attributes as columns. Allows for reading data
 		for particular galaxies without establishing Galaxy instances
 		by directly interfacing with the HDF5 interface.
@@ -498,7 +498,7 @@ class Galaxy(_Galaxy):
 		
 		d = cls.h5_interface.get_scalars_for_filenames(filenames, attributes)
 		
-		return d.values.squeeze()
+		return d.values.squeeze() if squeeze else d.values
 	
 	@classmethod
 	@add_doc(Galaxy_H5_Interface.read_arrays)

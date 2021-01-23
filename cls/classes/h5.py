@@ -103,6 +103,7 @@ def write_h5_file_contents():
 	from h5py import Dataset, File
 	
 	d = deque()
+	print('walking through h5 file contents... this can take a few moments')
 	
 	# when writing to a file, record the size in bytes of each Dataset
 	# object encountered; n-->'name', o-->'object'
@@ -125,7 +126,6 @@ def write_h5_file_contents():
 		t='\t'*depth
 		if size is None: return f'{t}{field}'
 		return f'{t}{field}: size = {size}'
-	
 	# should I explicitly chunk the writing?
 	with open(path,'w') as out:
 		out.write('\n'.join(map(makeline,*zip(*d))))
