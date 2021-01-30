@@ -311,7 +311,7 @@ def radial_distribution(Ginstance, ax=None, ylabel=True,
 	ax.annotate('pre $\mathregular{R_{eff}}$: %g,%g'%(pre_r_eff,partial_flux),(3,20/2))
 	ax.annotate('ratio (p/t): %g'%(partial_flux/HI_flux),(3,20/4))"""
 
-def format_ratio_axis(ax,m=1,labels=True):
+def format_ratio_axis(ax, m=1, labels=True):
 	"""Aesthetics function for plotting norm-1 ratios."""
 	ax1=ax
 	ax1.tick_params(axis='y',which='major',pad=ax1_tickpad)
@@ -319,6 +319,7 @@ def format_ratio_axis(ax,m=1,labels=True):
 	if m==1:
 		ylabel, ylim = asymmetry_plot_m1_r1_axis_label, ax1_ylim
 	else:
+		ylabel, ylim = asymmetry_plot_m2_r1_axis_label, m2ax1_ylim
 		ylabel, ylim = asymmetry_plot_m2_r1_axis_label, m2ax1_ylim
 	
 	if labels:
@@ -328,9 +329,10 @@ def format_ratio_axis(ax,m=1,labels=True):
 	ax1.set_xticks([0,90,180,270,360])
 	ax1.set_xticklabels([0,90,180,270,0])
 	
-	ax1.set_xlim(0,xmax=360)
+	ax1.set_xlim(0, xmax=360)
 	ax1.set_yscale('log')
-	ax1.set_ylim(ymin = 1/ylim, ymax = ylim)
+	ymin, ymax = sorted((1/ylim, ylim))
+	ax1.set_ylim(ymin = ymin, ymax = ymax)
 	
 	ax1.grid(b=True, which='major', axis='x')
 	ax1.axhline(y=1, color='black', ls=':')
