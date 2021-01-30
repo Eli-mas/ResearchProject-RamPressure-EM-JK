@@ -1055,6 +1055,39 @@ def get_m2_noncenter_data(Ginstance, check_wrongside=True, test=False):#,newchec
 	
 	return quadrant_outer_flux_set, m2nc_f_per_t
 
+def m2_weights_mode_1(A, B, C, D):
+	AB = A+B
+	CD = C+D
+# 	if False:
+# 		return ((A/B)*AB + (C/D)*CD) / (AB+CD)
+	
+	ABm = .5*(AB)
+	CDm = .5*(CD)
+	
+	A_less = A<CDm
+	B_less = B<CDm
+	w_AB = np.zeros_like(AB, dtype=float)
+	cond = A_less & B_less
+	w_AB[cond] = B[cond] - CDm[cond]
+	np.bitwise_and(~A_less, ~B_less, out = cond)
+	w_AB[cond] = A[cond] - CDm[cond]
+	w_AB /= (ABm - CDm)
+	
+	C_less = C<ABm
+	D_less = D<ABm
+	w_CD = np.zeros_like(CD, dtype=float)
+	np.bitwise_and(C_less, D_less, out = cond)
+	w_CD[cond] = D[cond] - ABm[cond]
+	np.bitwise_and(~C_less, ~D_less, out = cond)
+	w_CD[cond] = C[cond] - ABm[cond]
+	w_CD /= (CDm - ABm)
+	
+	out = w_AB*AB
+	out += w_CD*CD
+	out /= (AB + CD)
+	
+	return out
+
 def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, return_full=False):
 	"""
 	Compute flux data for m=2. Also compute the m=2 weights.
@@ -1102,8 +1135,7 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 			qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]
 		A_all, B_all = np.minimum(a_all, b_all), np.maximum(a_all, b_all)
 		C_all, D_all = np.minimum(c_all, d_all), np.maximum(c_all, d_all)
-		rsw_all, wsw_all = .5 * A_all / B_all, .5 * C_all / D_all
-		m2_weights = rsw_all + wsw_all
+		m2_weights = m2_weights_mode_1(A_all, B_all, C_all, D_all)
 		
 		qflux = qofs[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
 		m2_fluxscore_unweighted = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
@@ -1232,10 +1264,15 @@ def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1, pr=False):
 		rolling_gmean_wrap(m2_ext_ratios[:,1], aql)
 	))
 	
+# 	m2_score_weight = np.column_stack((
+# 		m2_score[(range_a2l+ahl)%a2l,0],
+# 		m2_score[:,1]**m2_weights
+# 	))[(a1hl+range_a2l)%a2l]
 	m2_score_weight = np.column_stack((
-		m2_score[(range_a2l+ahl)%a2l,0],
+		m2_score[:,0],
 		m2_score[:,1]**m2_weights
-	))[(a1hl+range_a2l)%a2l]
+	))
+	
 	ExtentScore_deproject_weighted = np.max(m2_score_weight[:,1])
 	""""""
 	
@@ -1265,15 +1302,10 @@ def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1, pr=False):
 	Ginstance.m2score_ar = m2_score_weight
 	Ginstance.m2ER = ExtentScore_deproject_weighted
 	Ginstance.m2ext_angle = m2_score_weight[np.argmax(m2_score_weight[:,1]), 0]
-	""""""
 	Ginstance.m2fluxscore_ar = m2fluxscore
 	Ginstance.m2FR = m2ExtentFluxScore
 	Ginstance.m2_FluxAngle = m2_FluxAngle
 	Ginstance.m2_weights = m2_weights
-	
-	"""Ginstance.m2_a_r_data=Ginstance.getattrs(
-		'm2ext_angle','m2_FluxAngle','m2ER','m2FR'
-	)"""
 
 
 __all__ = ('extentlist_func','EA_calc','score_calc','get_centroid_t_r',
