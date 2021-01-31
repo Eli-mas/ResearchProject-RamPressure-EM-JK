@@ -1055,7 +1055,35 @@ def get_m2_noncenter_data(Ginstance, check_wrongside=True, test=False):#,newchec
 	
 	return quadrant_outer_flux_set, m2nc_f_per_t
 
-def m2_weights_mode_1(A, B, C, D):
+def m2_weights_mode_1(Ginstance):
+	"""Calculate and return m=2 weight array.
+	
+	Let a,b,c,d = quadrant extents at angles a,a+80,a+90,a+270.
+	Let A,B = min,max of (a,b); C,D = min,max of (c,d)
+	
+	Then:
+	ab=(A+B)/2
+	cd=(C+D)/2
+	
+	w_ab={
+		(A-cd)/(ab-cd),		A,B < cd
+		(B-cd)/(ab-cd),		A,B > cd
+		0,					else
+	}
+	w_cd={
+		(C-ab)/(cd-ab),		A,B < ab
+		(D-ab)/(cd-ab),		A,B > ab
+		0,					else
+	}
+	
+	w = ((A+B)w_ab + (C+D)w_cd) / (A+B+C+D)
+	"""
+	qdata = rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1], aql)
+	a, b, c, d = \
+		qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]
+	
+	A, B = np.minimum(a, b), np.maximum(a, b)
+	C, D = np.minimum(c, d), np.maximum(c, d)
 	AB = A+B
 	CD = C+D
 # 	if False:
@@ -1130,20 +1158,15 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 		ABCD = None
 	
 	elif mode==1: # use extent data to calculate weights
-		qdata = rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1], aql)
-		a_all, b_all, c_all, d_all = \
-			qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]
-		A_all, B_all = np.minimum(a_all, b_all), np.maximum(a_all, b_all)
-		C_all, D_all = np.minimum(c_all, d_all), np.maximum(c_all, d_all)
-		m2_weights = m2_weights_mode_1(A_all, B_all, C_all, D_all)
+		m2_weights = m2_weights_mode_1(Ginstance)
 		
 		qflux = qofs[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
 		m2_fluxscore_unweighted = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
 		m2flux_weighted_all = m2_weights * m2_fluxscore_unweighted
-		abcd_stack = np.column_stack((a_all, b_all, c_all, d_all))
+		abcd_stack = None # np.column_stack((a_all, b_all, c_all, d_all))
 		
 		lambda_AB = lambda_CD = None
-		ABCD = np.column_stack([A_all, B_all, C_all, D_all])
+		ABCD = None # np.column_stack([A_all, B_all, C_all, D_all])
 	
 	if test or return_full: return (
 		m2flux_weighted_all, m2_weights,
