@@ -320,7 +320,6 @@ def format_ratio_axis(ax, m=1, labels=True):
 		ylabel, ylim = asymmetry_plot_m1_r1_axis_label, ax1_ylim
 	else:
 		ylabel, ylim = asymmetry_plot_m2_r1_axis_label, m2ax1_ylim
-		ylabel, ylim = asymmetry_plot_m2_r1_axis_label, m2ax1_ylim
 	
 	if labels:
 		ax1.set_ylabel(ylabel, fontsize = ax1_fs, labelpad = ax1_labelpad)

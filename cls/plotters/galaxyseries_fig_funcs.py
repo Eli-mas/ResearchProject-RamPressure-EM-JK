@@ -6,7 +6,7 @@ from prop.asy_prop_plot import *
 from prop.asy_defaults import *
 from comp.computation_functions import *
 
-def rp_trace_plot(self, reject_by_m2 = False, save = True,
+def rp_trace_plot(self, reject_by_m2 = True, save = True,
 				  sig_asy = True, plot_sig_asy = True, zoom=True):
 # 	PA_radii=self.get_PA_radii()#np.sum(PA_radii, axis=1)
 # 	gas_content=self.get_contained_gas()
@@ -47,7 +47,7 @@ def rp_trace_plot(self, reject_by_m2 = False, save = True,
 	angle_zoom_ax.legend(handles=[], title='asymmetry angles (zoomed)', title_fontsize=20)
 
 	#m1_m2_flux_ax=m1_m2_ext_ax.twinx()
-	if self.inc != 90:
+	if self.inc <= HIGH_I_THRESHOLD:
 		m1_m2_flux_ax=self.ratio_plot(('ER','FR'), ax=m1_m2_ext_ax, title=False, save=False, m2=True, show_rp=False)
 		for s, m, l in zip((None, np.s_[::2]), (None, 'o'), (None, 'ER/m2ER')):
 			self.timeplot(

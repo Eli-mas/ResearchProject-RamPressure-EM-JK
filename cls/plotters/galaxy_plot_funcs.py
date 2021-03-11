@@ -133,7 +133,9 @@ def plot_ratio_arrays(self, ax=None, labels=True):
 		(self.score_trig,'ER_trig'),
 		(self.score,'ER'),
 	):
-		ax.plot(*(ar*[rad_to_deg,1]).T, lw=2, color=COLORS[n], label=LABELS[n])
+		if n=='ER': label = f'{LABELS[n]} ({self.ER:.2f})'
+		else: label = LABELS[n]
+		ax.plot(*(ar*[rad_to_deg,1]).T, lw=2, color=COLORS[n], label=label)
 	
 	format_ratio_axis(ax, labels=labels)
 	
@@ -142,7 +144,9 @@ def plot_ratio_arrays(self, ax=None, labels=True):
 		(self.fluxscore_ar,'FR'),
 # 		(qfluxscore_ar,qflux_color)
 	):
-		ax2.plot(ar[:,0], ar[:,1], lw=2, color=COLORS[n], label=LABELS[n])
+		if n=='FR': label = f'{LABELS[n]} ({self.FR:.2f})'
+		else: label = LABELS[n]
+		ax2.plot(ar[:,0], ar[:,1], lw=2, color=COLORS[n], label=label)
 	
 	format_flux_ratio_axis(self, ax2, labels=labels)
 	

@@ -28,7 +28,7 @@ plotting_kw[[k.replace('A', 'R') for k in plotting_kw.columns[:-1]]]=plotting_kw
 def timeplot(self, attr, ax=None, aplot=False, mode='plot', 
 	start=None, end=None, slice=None, sig_asy = None,
 	zoom = True, adjust = 0, plot_sig_asy=False,  offsets=False,
-	**pkwargs):
+	offset_ref = None, **pkwargs):
 
 	if slice is None:
 		if start is None: start=0
@@ -79,10 +79,18 @@ def timeplot(self, attr, ax=None, aplot=False, mode='plot',
 	
 	if aplot:
 		if offsets:
+			print(f'offsets {self}:',offsets)
 			pkw.setdefault('center', 0)
 			res = self.offset(res)
 		else:
-			pkw.setdefault('center', self.WA)
+			if offset_ref is not None:
+				if callable(offset_ref):
+					offset_ref = offset_ref(self)
+				print(f'timeplot {self}: offset_ref set to', offset_ref)
+				pkw.setdefault('center', offset_ref)
+			else:
+				print('offset_ref not set')
+				pkw.setdefault('center', self.WA)
 		plot = stabilize_plot(res, ax=ax, X_array=tplot, return_plots=True, set_ylim = not zoom, **pkw)
 	else:
 		plot = ax.plot(tplot, res, **pkw)
