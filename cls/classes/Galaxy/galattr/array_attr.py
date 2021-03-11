@@ -17,7 +17,6 @@ m_agnostic = dict(
 	side_lists = ('shortside_list_graph', 'longside_list_graph'),
 	quantity_arrays = ('total_t', 'total_r', 'total_x', 'total_y', 'total_f'),
 	quantity_arrays_qsorted = (
-		
 		'total_f_rsort', 'total_f_tsort', 'total_r_fsort', 'total_r_rsort', 'total_r_tsort',
 		'total_t_fsort', 'total_t_int', 'total_t_int_fsort', 'total_t_int_rsort',
 		'total_t_int_tsort', 'total_t_rsort', 'total_t_tsort', 'total_x_fsort', 'total_x_rsort',
@@ -36,17 +35,16 @@ m_agnostic = dict(
 )
 
 m2_only = dict(
-	corrected_extentlists=('extentlist_graph_corrected','extentlist_graph_deproject'),
+	corrected_extentlists = ('extentlist_graph_corrected', 'extentlist_graph_deproject'),
 	side_lists = ('shortside_list_graph_deproject', 'longside_list_graph_deproject'),
-	m2_arrays=('m2_ext_ratios', 'm2score_ar', 'm2fluxscore_ar', 'm2_weights', 'm2ext_avgs', 'm2mM'),
+	m2_arrays = ('m2_ext_ratios', 'm2score_ar', 'm2fluxscore_ar', 'm2_weights',
+				 'm2ext_avgs', 'm2mM', 'm2nc_f_per_t'),
 	m2_boundaries = ('m2interior_edge', 'pl_ar_deproject'),
-	
-	
 )
 
 
 
-	
+
 
 
 
@@ -65,7 +63,7 @@ saveable_arrays = {
 	'htscores_ar_trig', 'score', 'm2interior_edge', 'fluxscore_ar_trig',
 	'interior_edge', 'fluxscore_ar', 'qfluxscore_ar', 'total_x', 'total_r',
 	'total_f_per_t', 'total_y', 'total_f', 'extentratio', 'htscores_ar',
-	'plot_list_adjust', 'extentlist'
+	'plot_list_adjust', 'extentlist', 'm2nc_f_per_t'
 }
 
 nonsaveable_arrays = arrays - saveable_arrays

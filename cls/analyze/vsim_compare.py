@@ -9,7 +9,6 @@ from asy_io.asy_io import sanitize_path
 
 from comp.array_functions import minmax
 from comp import polar_functions
-from core.core import Struct
 from cls.adc import VollmerSeries, R0Series, R90Series
 from plot.plotting_functions import (multi_axis_labels, make_common_axlims, 
 	misc_fig_save, hline, autoscale, vline, sorted_legend)
@@ -18,6 +17,8 @@ from prop.simprop import vollmer_disk_wind_inclinations
 from prop.asy_prop import deg, nan
 from prop.simprop import vollmer_data, vollmer_ranges
 from math import floor
+
+from common import EmptyDict, Struct
 
 __prop__ = Struct(
 	colors=('r', 'y', 'g', 'b'),
@@ -137,9 +138,9 @@ def _meanplot(lines_tuples, ax, attr=None, typefolder=None, savetype=None, scale
 def vsim_compare(
 	attr, attr2 = None, *, aplot=True, ax=None, series_kw=None, plot_kw=None, averaging=True,
 	axes=None, save=True, label_gal=True, label_inc=True, text=True, name=None,
-	timeplot_kw=None, qtype=None
+	timeplot_kw=EmptyDict, qtype=None
 ):
-	typefolder = 'angles' if aplot else 'other' if qtype is not None else 'ratios'
+	typefolder = 'other' if qtype is not None else 'angles' if aplot else 'ratios'
 	if series_kw is None: series_kw = {}
 	if plot_kw is None: plot_kw = {}
 	if axes is not None:
@@ -231,10 +232,12 @@ def vsim_compare(
 
 def _vsim_compare_1d_plot(S, attr, aplot, ax, **pkw):
 	if aplot:
-		try:
-			mask = S.sig_asy_full_mask()
-		except AttributeError:
-			mask = S.sig_asy_mask()
+		if pkw.get('sig_asy') is None:
+			try:
+				mask = S.sig_asy_full_mask()
+			except AttributeError:
+				mask = S.sig_asy_mask()
+			pkw['sig_asy'] = mask
 
 	try:	
 		if callable(attr):
@@ -244,9 +247,7 @@ def _vsim_compare_1d_plot(S, attr, aplot, ax, **pkw):
 			if callable(attribute):
 				attr = attribute()
 
-		p = S.timeplot(
-				attr, ax=ax, aplot=aplot, label=None,
-				sig_asy=mask if aplot else None, **pkw)
+		p = S.timeplot(attr, ax=ax, aplot=aplot, label=None, **pkw)
 		return p
 	except AttributeError as e:
 		print(f'\t{S.directory}:',repr(e))
@@ -255,13 +256,12 @@ def _vsim_compare_2d_plot(S, attr, attr2, ax, **pkw):
 	return S.plot(attr, attr2, ax=ax, label=None, **pkw)
 
 def _vsim_compare_plotter(attr, attr2, aplot, averaging, ax, plot_kw, series_kw, label_gal,
-						  timeplot_kw = None
+						  timeplot_kw = EmptyDict
 ):
 	plots = pd.DataFrame(index=__prop__.incgroups, columns=vollmer_ranges.keys())
 	incs = pd.DataFrame(index=__prop__.incgroups, columns=vollmer_ranges.keys())
 
 	_1d = not attr2
-	if timeplot_kw is None: timeplot_kw={}
 
 	gallines = pd.Series(index = __prop__.galaxies)
 	inclines = pd.Series(index = __prop__.incgroups)
@@ -296,11 +296,16 @@ def _vsim_compare_plotter(attr, attr2, aplot, averaging, ax, plot_kw, series_kw,
 			ax.plot([], [], c + 'o', label=galaxy)
 
 		plots[galaxy], incs[galaxy] = inc_plots, inc_labels
-		gallines[galaxy] = _line_averager(plots[galaxy], c=c, lw=3, label=f'{vollmer_disk_wind_inclinations[galaxy]}{deg} ({galaxy})')
+		try:
+			gallines[galaxy] = _line_averager(plots[galaxy], c=c, lw=3, label=f'{vollmer_disk_wind_inclinations[galaxy]}{deg} ({galaxy})')
+		except ValueError:
+			gallines[galaxy] = None
 
 	for inc,ls,m in zip(__prop__.incgroups, __prop__.ls,__prop__.markers):
-		inclines[inc] = _line_averager(plots.loc[inc], label=f'{inclabels[inc]} mean',
+		try: inclines[inc] = _line_averager(plots.loc[inc], label=f'{inclabels[inc]} mean',
 									  c='k', ls=ls, lw = 3 if ls == ':' else 2)
+		except ValueError:
+			inclines[inc] = None
 
 	if _1d:
 		if aplot:

@@ -22,7 +22,7 @@ from comp.contiguous import zdata_ret
 
 from comp.asymmetry_functions import (extentlist_func, get_beam_corrected_extentlist,
 	get_deprojected_extentlist, digitize_outer_flux, centroid_angle_calc, score_calc,
-	get_m2_inner_boundary, m2_calc)
+	get_m2_inner_boundary, m2_calc, get_m2_noncenter_data)
 from comp.computation_functions import reflect_reciprocate
 from comp.array_functions import reindex
 
@@ -30,6 +30,8 @@ from plot.plotting_functions import get_edge_radius
 from plot.RatioProcessPlotter import RatioProcessPlotter
 
 from common.decorators import add_doc_constants, add_doc
+
+from .galaxy_attribute_information import m2_attributes
 
 def A_beam(self):
 	"""beam area"""
@@ -486,6 +488,10 @@ def m2_ext_ratios(self):
 		)
 	))
 	return self.m2_ext_ratios
+
+def m2nc_f_per_t(self):
+	get_m2_noncenter_data(self)
+	return self.m2nc_f_per_t
 
 def m2_weights(self):
 	"""The weights applied to smoothed m=2 asymmetry values

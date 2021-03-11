@@ -29,12 +29,12 @@ from .galattr.array_attr import *
 from .galattr.nonarray_attr import *
 
 # attributes that pertain to m=2 asymmetry
-m2_attributes=frozenset((
+m2_attributes = frozenset((
 	'm2ext_angle','m2ER','m2_FluxAngle','m2FR','m2_weights',
 	'extentlist_graph_deproject','shortside_list_graph_deproject',
 	'longside_list_graph_deproject','extentlist_graph_corrected',
 	'm2ext_avgs','m2fluxscore_ar','m2interior_edge','m2mM','m2score_ar',#'m2ext_data',
-	'pl_ar_deproject','m2_ext_ratios'
+	'pl_ar_deproject','m2_ext_ratios','m2nc_f_per_t'
 ))
 
 # attributes forbidden from high-inclination simulations

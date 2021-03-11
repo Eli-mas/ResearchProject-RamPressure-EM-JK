@@ -8,6 +8,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 
+from asy_io.asy_io import cluster_shape_data
+
 from prop.galaxy_file import *
 from prop.simprop import *
 from prop.sim_fn_gen import rsim_file_groups
@@ -62,10 +64,16 @@ class _GalaxySet:
 # 		from the module where this instance is initialized."""
 		assert hasattr(self, '_sample'), \
 			f"{type(self)} must have '_sample' attribute"
+		
+# 		self.prop = prop
 	
 	def __getattr__(self, attr, *, non_arrays = non_arrays):
 		"""Tell Galaxy to load data from disk (HDF5) corresponding
 		to this instance's sample and the attributes passed."""
+		res = self.prop.get(attr)
+		if res is not None:
+			return res
+		
 		if attr in non_arrays:
 			return Galaxy.read_scalars(self._sample, attr)
 		else:
@@ -132,10 +140,10 @@ class _GalaxySet:
 		
 		If `text`, the galaxy name is plotted next to the plotted point.
 		The text properties may be controlled via keywords passed to Axes.text
-		via `textkw`. If provided, `textcond` is a callable taking two values
-		x,y, the plotted values for a single point, as the sole arguments;
-		when False, it stops the text from being plotted; when True, the text
-		is plotted.
+		via `textkw`. If provided, `textcond` is a callable taking three values
+		x,y,n the plotted values for a single point and the name of the referent
+		galaxy, as the sole arguments; when False, it stops the text from being
+		plotted; when True, the text is plotted.
 		"""
 		x, y = self.get(q1), self.get(q2)
 		
@@ -163,7 +171,7 @@ class _GalaxySet:
 					ax.text(i, j, f, **kw) for i,j,f in zip(x,y,self._sample)
 					if
 						(not (np.isnan(i) or np.isnan(j))) and
-						textcond(i, j)
+						textcond(i, j, f)
 				)
 		return p
 	
@@ -241,19 +249,24 @@ class GalaxySetMaker(type):
 	def __init__(self, *a, **kw):
 		...
 	
-	def __new__(cls, clsname, bases=(), attr=EmptyDict, sample = None):
+	def __new__(cls, clsname, bases=(), attr=EmptyDict, sample = None, prop=EmptyDict):
 # 		print('GalaxySetMaker.__new__: sample:',sample)
 		
 		if sample is None:
 			if clsname.startswith('R'): # assign Roediger sample
 				sample = rsim_file_groups[cls.get_sim_params(clsname, 2)]
+				prop = {'PA':0}
 			elif clsname.startswith('V'): # assign Vollmer sample
 				sample = vsim_file_groups[cls.get_sim_params(clsname, 3, (0,))[:-1]]
+				prop = {'PA':cluster_shape_data.loc[f'NGC{clsname[1:5]}','PA']}
 			else: #
 				sample = eval(clsname.upper())
 		
 		bases = (_GalaxySet, *bases)
-		attr = {'_sample':sample, '_instance':None, '__new__':singleton_new, **attr}
+		attr = {
+			'_sample':sample, '_instance':None, '__new__':singleton_new,
+			'prop':prop, **attr
+		}
 		
 		return super().__new__(cls, clsname, bases, attr)
 

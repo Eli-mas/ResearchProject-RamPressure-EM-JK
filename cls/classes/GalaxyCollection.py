@@ -123,7 +123,7 @@ class _GalaxyCollection:
 			#traceback.print_exc()
 			return NULL
 	
-	def getattrs(self, *attrs, asarray=True):#, **k
+	def getattrs(self, *attrs, asarray=True, _zip=None):#, **k
 		# _zip=k.setdefault('_zip', None)
 		# #print 'getattrs: _zip=%s'%_zip
 		# res=tuple((self._getmissing(v, _zip=_zip) if isinstance(v, str) else v) for v in attrs)
@@ -149,16 +149,19 @@ class _GalaxyCollection:
 		return COLLECTION_NPY_PATH.format(directory=directory, artype=artype)
 	
 	def _save_array(self, attr, data):
-		print(
+		raise NotImplementedError("_save_array not implementd for GalaxyCollection")
+		"""print(
 			f'{self}: _save_array: saving attribute "{attr}" to {self.format_collection_path(self.directory, attr)}',
 			str(data).replace('\n','\n\t'),sep='\n'
 			)
 		loaded=save_array(self.format_collection_path(self.directory, attr), data)
-		return loaded
+		return loaded"""
 	
-	def _load_array(self, attr):
-		loaded=load_array(self.format_collection_path(self.directory, attr))
-		return loaded
+	def _load_array(self, attr, *, non_arrays=non_arrays):
+		if attr in non_arrays: return Galaxy.read_scalars(self.galaxies, attr)
+		return Galaxy.read_arrays(self.galaxies, attr)
+		"""loaded=load_array(self.format_collection_path(self.directory, attr))
+		loaded"""
 	
 	"""def remove(self, attr, indices=None):
 		'''
@@ -286,7 +289,7 @@ class _GalaxySeries(_GalaxyCollection):
 	def sig_asy_and_angle_indices(self, angle, m2=True, threshold = sig_angle_cutoff):
 		cond=(self.ER >= sig_ext_cutoff) & (self.FR >= sig_flux_cutoff) & \
 			 (self.abs_offset(angle, squeeze=True) <= threshold)
-		if m2 and self.inc<90:
+		if m2 and self.inc<=HIGH_I_THRESHOLD:
 			cond &= ((self.ER / self.m2ER > sig_m1_m2_ext_cutoff) & \
 					(self.FR - self.m2FR > sig_m1_m2_flux_cutoff))
 		return np.where(cond)[0]
@@ -303,7 +306,7 @@ class _GalaxySeries(_GalaxyCollection):
 		ER/m2ER & FR-m2FR
 		"""
 		cond=(self.ER>=sig_ext_cutoff) & (self.FR>=sig_flux_cutoff)
-		if m2 and self.inc<90:
+		if m2 and self.inc<=HIGH_I_THRESHOLD:
 			cond &= ((self.ER/self.m2ER>sig_m1_m2_ext_cutoff) & (self.FR-self.m2FR>sig_m1_m2_flux_cutoff))
 		return np.where(cond)[0]
 	
@@ -318,11 +321,12 @@ class _GalaxySeries(_GalaxyCollection):
 	def __init__(self, galset, coll_type, time_index=None, rot=None, **kw):
 		_GalaxyCollection.__init__(self, galset, coll_type, _zip = False, **kw)
 # 		print('{self}: self.sig_indices_:',self.sig_indices_)
-		self.ind_sig=self.sig_indices(m2=True)#int(self.sig_indices_[0])
 		for c in ('xpix', 'ypix', 'PA'): setattr(self, c, getattr(self.instances[0], c))
 		if rot is None:
 			raise ValueError("specify 'rot' parameter to describe rotation")
 		self.rot = -1 if rot==-1 else 1
+		
+		self.ind_sig=self.sig_indices(m2=True)#int(self.sig_indices_[0])
 	
 	def time(self, t):
 		"""
@@ -374,7 +378,7 @@ class _GalaxySeries(_GalaxyCollection):
 	def sig_std(self, attr): return self.average(attr, inds=self.sig_indices_)"""
 	
 	@property
-	def PA_diameters(self): return self.get_PA_radii().sum(axis=1)
+	def PA_diameters(self): return 2*self.get_PA_radii().sum(axis=1)
 	@property
 	def PA_diameters_norm(self):
 		d = self.get_PA_radii().sum(axis=1)
@@ -574,11 +578,11 @@ def VollmerSeriesCollection(source = vollmer_data, **k):
 	if isinstance(source, str):
 		return tuple(
 			partial(VollmerSeries, galaxy=source, inclination=i, **k)
-			for i in sorted(vollmer_data[source])
+			for i in sorted(vollmer_data[source])#, reverse=True
 		)
 	return tuple(
 		partial(VollmerSeries, galaxy=g, inclination=i, **k)
-		for g in source for i in sorted(vollmer_data[g])
+		for g in source for i in sorted(vollmer_data[g])#, reverse=True
 	)
 
 
@@ -620,8 +624,8 @@ class SeriesProxy(Proxy):
 	
 	def remove(self,galaxy,inc):
 		size=len(self.targets)
-		#self.targets[:] = (s for s in self.targets if not (s.galaxy==galaxy and s.inc==inc))
-		self.targets = self.targets[[not (s.galaxy==galaxy and s.inc==inc) for s in self.targets]]
+		self.targets[:] = tuple(s for s in self.targets if not (s.galaxy==galaxy and s.inc==inc))
+# 		self.targets = self.targets[[not (s.galaxy==galaxy and s.inc==inc) for s in self.targets]]
 		if len(self.targets)==size:
 			raise ValueError('SeriesProxy.remove: no targets were removed')
 	

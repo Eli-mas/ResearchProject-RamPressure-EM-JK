@@ -542,16 +542,16 @@ class Galaxy(_Galaxy):
 		create a new Galaxy instance and compute values on it from scratch
 		if attribute_set is not specified, all attributes are computed
 		"""
-		print_update('recomputing',filename)
-		g = Galaxy(filename,compute=True)
+		print_update('recomputing', filename)
+		g = Galaxy(filename, compute=True)
 		
-		# the computational machinery is written into the __getattr__ method
-		# so simply getting all permitted attributes ensures they are computed
+		# the machinery is written into the __getattr__ method
+		# simply getting all permitted attributes ensures they are computed
 		if attribute_set is None:
 			attribute_set = all_attributes
 		
 		for attr in attribute_set:
-			try: getattr(g,attr)
+			try: getattr(g, attr)
 			except AttributeAbsent: pass
 		return g
 	
