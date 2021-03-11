@@ -479,6 +479,7 @@ def get_beam_corrected_extentlist(Ginstance, plot=False, link_folder = None):
 		beam = reindex(beam, ahl, axis=1)
 		beam_diameter = beam[1] * 2
 	else:
+		beam = np.array((range_a2l_deg,np.full(a2l,Ginstance.d_beam_arcsec/2)))
 		beam_diameter = Ginstance.d_beam_arcsec
 	
 	extentlist_graph = Ginstance.extentlist_graph
@@ -1049,13 +1050,15 @@ def get_m2_noncenter_data(Ginstance, check_wrongside=True, test=False):#,newchec
 				plt.legend()
 				plt.show()"""
 	
-	quadrant_outer_flux_set = rolling_sum_wrap(m2nc_f_per_t, aql)
+# 	quadrant_outer_flux_set = rolling_sum_wrap(m2nc_f_per_t, aql)
 	
 	"""assertion tests in asymmetry_functions_adc_non_decommented_02_19_15.py"""
 	
-	return quadrant_outer_flux_set, m2nc_f_per_t
+# 	return quadrant_outer_flux_set, m2nc_f_per_t
+	Ginstance.m2nc_f_per_t = m2nc_f_per_t
+	return m2nc_f_per_t
 
-def m2_weights_mode_1(Ginstance):
+def m2_weights_mode_1(Ginstance, smooth_first = False, *, test = False):
 	"""Calculate and return m=2 weight array.
 	
 	Let a,b,c,d = quadrant extents at angles a,a+80,a+90,a+270.
@@ -1078,7 +1081,8 @@ def m2_weights_mode_1(Ginstance):
 	
 	w = ((A+B)w_ab + (C+D)w_cd) / (A+B+C+D)
 	"""
-	qdata = rolling_mean_wrap(Ginstance.extentlist_graph_deproject[:,1], aql)
+	qdata = Ginstance.extentlist_graph_deproject[:,1]
+	if smooth_first: qdata = rolling_mean_wrap(qdata, aql)
 	a, b, c, d = \
 		qdata[(range_a2l.reshape(a2l, 1) + (0, al, ahl, a1hl)).T % a2l]
 	
@@ -1114,20 +1118,34 @@ def m2_weights_mode_1(Ginstance):
 	out += w_CD*CD
 	out /= (AB + CD)
 	
-	return out
+	if smooth_first:
+		return out
+	
+	return rolling_mean_wrap(out, aql)
 
-def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, return_full=False):
+def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1,
+					   return_full=False, weight_smooth_mode=M2_WEIGHT_SMOOTH):
 	"""
 	Compute flux data for m=2. Also compute the m=2 weights.
 	`mode` parameter determines how weights are computed (1-->extent, 0-->flux).
-	"""
-	totalflux = Ginstance.totalflux
-	qofs, m2nc_f_per_t = get_m2_noncenter_data(
-		Ginstance, check_wrongside = check_wrongside, test = test
-	)
 	
+	`weight_smooth_mode`: one of (0, 1, 2).
+		0: calculate weights over smoothed quadrant asymmetry data
+		   and apply to smoothed ratios
+		1: calculate weights over unsmoothed quadrant asymmetry data,
+		   smooth, and then apply to smoothed ratios
+		2: (default) calculate weights over unsmoothed quadrant asymmetry data
+		   apply to unsmoothed ratios, and then smooth the weighted ratios
+	"""
+	if weight_smooth_mode not in (0,1,2):
+		raise ValueError("`weight_smooth_mode` must be in {0,1,2}")
+	
+	totalflux = Ginstance.totalflux
+	m2nc_f_per_t = get_m2_noncenter_data(
+		Ginstance, check_wrongside = check_wrongside, test = test
+	)#, 
 	if mode==0: # use flux data to calculate weights
-		qdata=qofs
+		qdata = rolling_sum_wrap(m2nc_f_per_t, aql)
 		abcd_rows = complex_reindex_2d(
 			np.broadcast_to(qdata, [4, a2l]),
 			(0, al, ahl, a1hl),
@@ -1158,13 +1176,22 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 		ABCD = None
 	
 	elif mode==1: # use extent data to calculate weights
-		m2_weights = m2_weights_mode_1(Ginstance)
+		m2_weights = m2_weights_mode_1(Ginstance, smooth_first = (weight_smooth_mode==0))
 		
-		qflux = qofs[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
-		m2_fluxscore_unweighted = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
-		m2flux_weighted_all = m2_weights * m2_fluxscore_unweighted
+		if weight_smooth_mode<2:
+			qofs = qdata = rolling_sum_wrap(m2nc_f_per_t, aql)
+			qflux = qofs[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
+			m2_fluxscore_unweighted = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
+			if weight_smooth_mode==0:
+				m2flux_weighted_all = m2_weights * m2_fluxscore_unweighted
+			else:
+				m2flux_weighted_all = rolling_mean_wrap(m2_weights, aql) * m2_fluxscore_unweighted
+		else:
+			qflux = qdata = rolling_sum_wrap(m2_weights * m2nc_f_per_t, aql)
+			qflux = qflux[(range_a2l.reshape(1, a2l) + np.vstack((0, al, ahl, a1hl))) % a2l]
+			m2flux_weighted_all = (qflux[:2].sum(0) - (qflux[2:].sum(0))) / totalflux
+			m2_fluxscore_unweighted = None
 		abcd_stack = None # np.column_stack((a_all, b_all, c_all, d_all))
-		
 		lambda_AB = lambda_CD = None
 		ABCD = None # np.column_stack([A_all, B_all, C_all, D_all])
 	
@@ -1178,15 +1205,28 @@ def get_m2_flux_arrays(Ginstance, check_wrongside=True, test=False, mode=1, retu
 	return m2flux_weighted_all, m2_weights, m2_fluxscore_unweighted
 
 @add_doc(get_m2_flux_arrays)
-def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1, pr=False):
+def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1,
+			pr=False, weight_smooth_mode=M2_WEIGHT_SMOOTH):
 	"""
 	Compute m=2 quantities. `test` can be set to True to generate
 	plots that show the stages of the calculation, in which case
 	the `mode` argument comes into play (mode=0 --> flux-based
 	weights, mode=1 --> extent-based weights).
 	
+	`weight_smooth_mode`: one of (0, 1, 2).
+		0: calculate weights over smoothed quadrant asymmetry data
+		   and apply to smoothed ratios
+		1: calculate weights over unsmoothed quadrant asymmetry data,
+		   smooth, and then apply to smoothed ratios
+		2: (default) calculate weights over unsmoothed quadrant asymmetry data
+		   apply to unsmoothed ratios, and then smooth the weighted ratios
+		
+	
 	Defers to `get_m2_flux_arrays`.
 	"""
+	if weight_smooth_mode not in (0,1,2):
+		raise ValueError("`weight_smooth_mode` must be in {0,1,2}")
+	
 	if deny_m2_high_i and Ginstance.inclination > high_i_threshold:
 		Ginstance.m2score_ar=nan
 		Ginstance.m2ER=nan
@@ -1282,19 +1322,35 @@ def m2_calc(Ginstance, check_wrongside=True, test=False, mode=1, pr=False):
 		)
 	))"""
 	
-	m2_score = np.column_stack((
-		m2_ext_ratios[:,0],
-		rolling_gmean_wrap(m2_ext_ratios[:,1], aql)
-	))
-	
-# 	m2_score_weight = np.column_stack((
-# 		m2_score[(range_a2l+ahl)%a2l,0],
-# 		m2_score[:,1]**m2_weights
-# 	))[(a1hl+range_a2l)%a2l]
-	m2_score_weight = np.column_stack((
-		m2_score[:,0],
-		m2_score[:,1]**m2_weights
-	))
+	if weight_smooth_mode==0:
+		m2_score = np.column_stack((
+			m2_ext_ratios[:,0],
+			rolling_gmean_wrap(m2_ext_ratios[:,1], aql)
+		))
+		
+# 		m2_score_weight = np.column_stack((
+# 			m2_score[(range_a2l+ahl)%a2l,0],
+# 			m2_score[:,1]**m2_weights
+# 		))[(a1hl+range_a2l)%a2l]
+		m2_score_weight = np.column_stack((
+			m2_score[:,0],
+			m2_score[:,1]**m2_weights
+		))
+
+	if weight_smooth_mode==1:
+		m2_score = np.column_stack((
+			m2_ext_ratios[:,0],
+			rolling_gmean_wrap(m2_ext_ratios[:,1], aql)
+		))
+		m2_score_weight = np.column_stack((
+			m2_score[:,0],
+			m2_score[:,1]**(rolling_mean_wrap(m2_weights, aql))
+		))
+	else:
+		m2_score_weight = np.column_stack((
+			m2_ext_ratios[:,0],
+			rolling_gmean_wrap(m2_ext_ratios[:,1]**m2_weights, aql)
+		))		
 	
 	ExtentScore_deproject_weighted = np.max(m2_score_weight[:,1])
 	""""""

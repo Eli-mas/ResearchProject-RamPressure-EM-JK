@@ -3,7 +3,8 @@
 	save_fmt: save a pandas DataFrame in human-readable format
 ."""
 
-import sys, os, os.path, traceback, re, shutil
+import sys, os, os.path, traceback, re, shutil, errno
+from subprocess import run
 from functools import partial, reduce
 
 from common import consume
@@ -95,31 +96,13 @@ def makepath_from_file(f):
 	makepath(f[:len(f)-f[::-1].index('/')])
 	return f
 
-def touch_directory(directory):
+def touch_directory(directory, *, errnum=errno.ENOENT, errmsg=os.strerror(errno.ENOENT)):
 	"""
-	'touch' a directory -- make the directory's modification date (mtime)
-	change by adding and removing a file. There are other ways to do this, but
-	this is a simple way.
-	:param directory: directory where the file is created
-	:return:
-	
-	
-	! ! ! Note to self: Much simpler approach--
-		use the Unix-native `touch` command with `-m` argument 
+	Pass a directory and run the unix 'touch' command on it.
 	"""
-	f = '__temp__{}'
-	i=0
-	while True:
-		t = os.path.join(directory,f.format(i))
-		#print(t)
-		if not os.path.exists(t): break
-		i+=1
-	try:
-		with open(t,'x') as f: pass
-		os.remove(t)
-	finally:
-		if os.path.exists(t):
-			os.remove(t)
+	if not os.path.exists(directory):
+		raise FileNotFoundError(errnum, errmsg, directory)
+	subprocess.run(['touch', directory])
 
 def savetxt(p, ar, **k):
 	"""Given a path to a file `p` and an array `ar`,
@@ -411,13 +394,13 @@ def fits_data(Ginstance):
 	if is_real:
 		iterator = MultiIterator(baseline_attributes, observational_only_attributes)
 		
-		if inclination >= high_i_threshold:
+		if inclination > high_i_threshold:
 			Ginstance.deny_m2()
 	else:
 		iterator = baseline_attributes
 		Ginstance.deny_observational()
 		
-		if inclination == 90: Ginstance.deny_m2()
+		if inclination > HIGH_I_THRESHOLD: Ginstance.deny_m2()
 	
 	for attr in iterator:
 		try: # set the attr based on the value in this scope
