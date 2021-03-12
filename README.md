@@ -29,7 +29,7 @@ Components that allow the scripts to work but do not contribute to an understand
 The overview of what is here:
 * `asy_io`: miscellaneous functions relating to input and output.
 * `cls`: classes that make for convenient scripting and utility across the project.
-    - `analyze`: functions pertinent to the GalaxySeries class grouped modularly by general purpose
+    - `analyze`: functions pertinent to the GalaxySeries class grouped modularly by general purpose.
     - `classes`: classes that provide an interface to data loading, storage, and computation
         + `GalaxyCollection`: classes that aggregate across Galaxy objects. For simulation data, the contained GalaxySeries class is central. Note: some features of this module have been deprecated by `GalaxySets`
         + `h5`: fully encapsulating interface to h5py API
@@ -37,9 +37,9 @@ The overview of what is here:
         + `GalaxySets`: useful mostly for aggregating/plotting data across various samples of galaxies. Do you like metaclasses and polymorphism?
     - `plotters`: modules that contain functions meant to associate with the `Galaxy` or `GalaxySeries` classes. Modules are named according to the associations and purposes their functions serve.
 * `comp`: computational functions for different aspects of the project
-    - `array_functions.py`: lower-level array manipulation routines; somewhat miscllaneous, should probably be refactored.
+    - `array_functions.py`: lower-level array manipulation routines; much of the original functionality has been moved to [another repository](https://github.com/Eli-mas/common) of mine.
     - `asymmetry_functions.py`: the project revolves around calculating m=1/m=2 asymmetries; this script encodes the procedures for doing this for any provided galaxy.
-    - `computation_functions.py`: miscellaneous computation functions; should also be refactored, probably merged with `array_functions.py`.
+    - `computation_functions.py`: miscellaneous computation functions.
     - `contiguous.py`: Moment-0 maps, the raw data source, provide flux data across an array of pixels. But not all of these pixels involve the galaxy of interest--and some maps contain more than one galaxy. Calculating a galaxy's asymmetry requires assignment of pixels to the galaxy, without capturing other pixels. Our decision is that only pixels contiguous with the galaxy's center coordinate are to be considered for analysis, and this module encapsulates the logic of isolating these pixels--hence its name.
     - `polar_functions.py`: routines to handle analysis of periodic data, i.e. data bounded on a finite interval in some modular space--e.g., calculating aggregate statistics on such data.
     - `smoothing.py`: as with standard photography, astrophysical images come in different resolutions. We want those resolutions to be standard to the extent possible before analysis. For data that is of too high resolution, this is accomplished by smoothing over-resolved image data--hence the name of this module.
