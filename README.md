@@ -22,9 +22,7 @@ A fifth paper is partially underway that collects what we have learned in light 
 These five papers all stem from the methods that will be presented in the first paper. We have also developed more complex methods of measuring asymmetry that can be detailed in other articles.
 
 ## This repository
-I have posted the code here that pertains to the earlier papers, particularly the first three, with some miscellaneous scripting functions included. Code for potential future papers is not posted yet. Parts of this project depend on other modules that I have developed on my local machine; I will post parts of these in time.
-
-Components that allow the scripts to work but do not contribute to an understanding of the paper's methods, such as files defining paths to other files on the machine, are not included. A number of plotting routines are also not included yet.
+I have posted the code here that pertains to the earlier papers. There is some dependency on other modules I have developed (e.g. [here](https://github.com/Eli-mas/common)), but not to an extent that prevents understanding the code in this repository.
 
 The overview of what is here:
 * `asy_io`: miscellaneous functions relating to input and output.
