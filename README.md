@@ -1,28 +1,23 @@
 # ResearchProject-RamPressure-EM-JK
 Repository to track the development of an astrophysical research project conducted with [Jeffrey Kenney](http://www.astro.yale.edu/kenney/pages/index.html) of Yale's astronomy department.
 
-## My role in the project
-* **Software development/engineering**: Since starting, I have been the sole developer of this code base. I expanded it from a simple set of Python scripts into a series of interwoven modules aimed at being more functional, extensible, efficient software. We need algorithms and tools to efficiently store, update, and analyze data about growing numbers of galaxies (currently 1300+), which may range from a few thousand pixels to nearly 200,000 in size. Although there are a relatively mangeable number of end quantities of interest generated from the primary analysis, en route to these we compute ~150 attributes dynamically. A number of other scripts also need to access this data and manipulate it with ease. To support this:
-	- *Efficient, scalable storage*: storing separate files for each galaxy does not scale for current usage. The [HDF5](https://www.hdfgroup.org/solutions/hdf5) format, accessed via a wrapper I designed around the [h5py](https://www.h5py.org/) and [h5pickle](https://github.com/DaanVanVugt/h5pickle) interfaces, has proven able to meet current storage and access demands.
-	- *Fast computation*: packages from the scientific Python stack, including [Numba](https://numba.pydata.org/), [NumPy](https://numpy.org/)/[SciPy](https://www.scipy.org/), [Pandas](https://pandas.pydata.org/), and others are used at every opportunity possible. Ultimately this reduces computation time by orders of magnitude compared with a pure Python solution. Although the benefit of NumPy/SciPy cannot be overstated, the smooth integration of Numba into a variety of calculations offers great flexbility which would otherwise be more indirect with NumPy & Scipy. On a standard laptop, the primary analysis takes under a handful of minutes.
-	- *Modular, nimble design*: different kinds of routines (raw plotting, figure/table generation for the papers, file-system interaction, preprocessing on raw data, underlying algorithms) have distinct scripts and modules dedicated to them. Additionally, I have designed the central abstractions for this project, namely the `Galaxy` class and associated containers (`GalaxySet`, `GalaxyCollection`, `GalaxyGroup`) - with a consistent, flexible API in mind. These classes serve as a powerful interface to the data, masking the logic needed for retrieving and updating stored data, computing new results, validating the existence of particular fields, generating aggregates, and visualizing results; this makes it accessible as a front-end and scripting tool. At the same time, these are written in a way that makes them very easily extensible, such that new attributes and algorithms can be added to the mix.
-* **Researcher**: I have conceived of and implemented different analytical methods and analyzed results to answer research questions, the most fundamental of which is how to most effectively trace the presence of ram pressure by asymmetries introduced into galaxy morphology. To this end, I developed several more advanced methods for measuring asymmetry that utilize more information about the gas distribution than the baseline method present at the start of the project; my experimentation extended the project’s publishable results well beyond the original scope.
-* **Authorship/collaboration**: I am first author on the most analytically intensive article of the initial batch (paper II), and co-author on others. Dr. Kenney and I have collaborated closely on every scientific aspect of the project.
+## A note on the status: Sept 2024
+Unfortunately this project ceased activity in the Summer of 2021, and there are no plans to continue with it.
 
 ## Project aims and focus
 The purpose of the project is to develop a simple yet objective & reliable method for detecting the presence of ram pressure acting on a galaxy, and then estimating the direction of this pressure over the galaxy, given only a moment-0 map of the galaxy's gas content (HI [neutral hydrogen] for observational data, mixed for simulated data) at a particular time. We then seek to understand how our method performs on various galaxies for which we have data.
 
 Our method offers novel ways of quantifying asymmetries in the outer regions of a galaxy, and from this we estimate whether a galaxy's asymmetry offers sufficient evidence for ram pressure, and, if so, the direction of the ram pressure's origin, which implicitly yields an estimate of the galaxy's direction of motion.
 
-## Current state of the project:
-Articles I & II are written; we are tidying them up before submitting to the journal. Articles III & IV are mostly written, current focus is on refining figures. Expecting to submit these all to [ApJ](https://iopscience.iop.org/journal/0004-637X) for review this Spring.
+## (From March 2021) Current state of the project:
+Articles I & II are written; we are tidying them up before submitting to the journal. Articles III & IV are mostly written, current focus is on refining figures. Targeting [ApJ](https://iopscience.iop.org/journal/0004-637X) for submission.
 
 A fifth paper is partially underway that collects what we have learned in light of galaxy evolution from the application of our methods to observed galaxies.
 
 These five papers all stem from the methods that will be presented in the first paper. We have also developed more complex methods of measuring asymmetry that can be detailed in other articles.
 
 ## This repository
-I have posted the code here that pertains to the earlier papers. There is some dependency on other modules I have developed (e.g. [here](https://github.com/Eli-mas/common)), but not to an extent that prevents understanding the code in this repository.
+I have posted the code here that pertains to the earlier papers. There is some dependency on [this module](https://github.com/Eli-mas/common), but not to an extent that prevents understanding the code in this repository.
 
 The overview of what is here:
 * `asy_io`: miscellaneous functions relating to input and output.
